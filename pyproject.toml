@@ -5,7 +5,7 @@ description = ""
 authors = [{ name = "Matthew Li", email = "matthew.li10@education.nsw.gov.au" }]
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = ["flask (>=3.1.2,<4.0.0)", "cryptography (>=46.0.3,<47.0.0)", "python-dotenv (>=1.2.1,<2.0.0)"]
 
 [tool.poetry]
 packages = [{ include = "s", from = "src" }]
