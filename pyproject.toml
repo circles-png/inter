@@ -1,0 +1,15 @@
+[project]
+name = "s"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Matthew Li", email = "matthew.li10@education.nsw.gov.au" }]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.poetry]
+packages = [{ include = "s", from = "src" }]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
