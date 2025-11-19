@@ -1,14 +1,18 @@
-from hashlib import sha256
+from asyncio import Event, get_event_loop, set_event_loop
+from concurrent.futures import ThreadPoolExecutor
 from http.client import CREATED, OK
-from os import environ
 import time
-import cryptography.hazmat
-import cryptography.hazmat.primitives
-import cryptography.hazmat.primitives.serialization
-import cryptography.x509
-import flask
-from flask import blueprints
-import cryptography
+from aiortc import (
+    MediaStreamTrack,
+    RTCConfiguration,
+    RTCIceCandidate,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
+)
+import quart
+from quart import request
+from quart_cors import cors
 
 
 def ntp_now():
@@ -16,72 +20,171 @@ def ntp_now():
     return int(time.time() + NTP_DELTA)
 
 
+class Stream:
+    def __init__(self, connection: RTCPeerConnection) -> None:
+        self.connection = connection
+        self.tracks: list[MediaStreamTrack] = []
+        self.clients: list[Client] = []
+
+
+class Client:
+    def __init__(self, connection: RTCPeerConnection) -> None:
+        self.connection = connection
+
+
 def create_app():
     ADDRESS = "127.0.0.1"
 
-    app = flask.Flask(__name__)
+    get_event_loop().set_default_executor(ThreadPoolExecutor(8))
+    app = quart.Quart(__name__)
+    cors(app, allow_origin="*")
+    streams: list[Stream] = []
+    api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
 
-    @app.route("/")
-    def index():
-        return flask.render_template("index.html")
-
-    api = flask.Blueprint("api", __name__, url_prefix="/api/v1/")
-
-    @api.route("/")
-    def api_index():
-        return flask.Response(status=OK)
+    @app.route("/<int:stream_id>")
+    async def index(stream_id: int):
+        print(stream_id)
+        return await quart.render_template("index.html", stream_id=stream_id)
 
     @api.route("/stream", methods=["POST", "DELETE"])
-    def stream():
-        session_id = ntp_now()
-        session_version = 0
-        unicast_address = ADDRESS
-        ufrag = "userfrag"
-        pwd = "pwd"
-
-        with open(environ["CERT_PATH"], "rb") as f:
-            fingerprint = (
-                sha256(
-                    cryptography.x509.load_pem_x509_certificate(f.read()).public_bytes(
-                        cryptography.hazmat.primitives.serialization.Encoding.DER
-                    )
-                )
-                .digest()
-                .hex(":")
-                .upper()
+    async def stream():
+        stream = Stream(
+            RTCPeerConnection(
+                RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
             )
-        answer = [
-            ("v", "0"),
-            ("o", f"- {session_id} {session_version} IN IP4 {unicast_address}"),
-            ("s", f"session name; {session_id}"),
-            ("t", "0 0"),
-            ("a", "recvonly"),
-            ("a", f"ice-ufrag:{ufrag}"),
-            ("a", f"ice-pwd:{pwd}"),
-            ("a", f"fingerprint:sha-256 {fingerprint}"),
-            ("a", "setup:passive"),
-            ("m", "video 5001 RTP/AVP 96 97"),
-        ]
-        answer = "".join(f"{key}={value}\r\n" for key, value in answer)
-        print(answer)
-        location = f"http://{ADDRESS}:5001/api/v1/stream/0"
-        return flask.Response(
-            answer,
-            content_type="application/sdp",
+        )
+        streams.append(stream)
+
+        @stream.connection.on("connectionstatechange")
+        def on_connectionstatechange():
+            print(f"tx connectionstatechange", stream.connection.connectionState)
+
+        @stream.connection.on("datachannel")
+        def on_datachannel():
+            print(f"tx datachannel")
+
+        @stream.connection.on("icecandidate")
+        def on_icecandidate(candidate: RTCIceCandidate):
+            print(f"tx icecandidate", candidate)
+
+        @stream.connection.on("icecandidateerror")
+        def on_icecandidateerror():
+            print(f"tx icecandidateerror")
+
+        @stream.connection.on("iceconnectionstatechange")
+        def on_iceconnectionstatechange():
+            print(f"tx iceconnectionstatechange", stream.connection.iceConnectionState)
+
+        @stream.connection.on("negotiationneeded")
+        def on_negotiationneeded():
+            print(f"tx negotiationneeded")
+
+        @stream.connection.on("signalingstatechange")
+        def on_signalingstatechange():
+            print(f"tx signalingstatechange", stream.connection.signalingState)
+
+        @stream.connection.on("track")
+        def on_track(t: MediaStreamTrack):
+            print(f"tx track")
+            stream.tracks.append(t)
+
+        await stream.connection.setRemoteDescription(
+            RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
+        )
+        await stream.connection.setLocalDescription(
+            await stream.connection.createAnswer()
+        )
+        if stream.connection.iceGatheringState != "complete":
+            completed = Event()
+
+            @stream.connection.on("icegatheringstatechange")
+            def check():
+                if stream.connection.iceGatheringState == "complete":
+                    completed.set()
+
+            await completed.wait()
+        return quart.Response(
+            stream.connection.localDescription.sdp,
             status=CREATED,
-            headers={"Location": location},
+            content_type="application/sdp",
+            headers={
+                "Location": f"http://{ADDRESS}:5001/api/v1/stream/{len(streams) - 1}/tx"
+            },
         )
 
-    @api.route("/stream/0", methods=["GET", "POST", "PATCH"])
-    def stream_session():
-        print("a")
-        print(flask.request.__dict__)
-        return flask.Response(status=200)
+    @api.route("/stream/<int:stream_id>/tx", methods=["POST", "PATCH"])
+    async def stream_tx(stream_id: int):
+        print("TX endpoint called:", stream_id)
+        return quart.Response(status=OK)
 
-    @api.route("/stream/0", methods=["DELETE"])
-    def stream_delete():
-        print("deleting stream")
-        return flask.Response(status=200)
+    @api.route("/stream/<int:stream_id>/tx", methods=["DELETE"])
+    async def stream_tx_delete(stream_id: int):
+        print("TX endpoint deleted at stream id:", stream_id)
+        return quart.Response(status=OK)
+
+    @api.route("/stream/<int:stream_id>/rx", methods=["POST", "PATCH"])
+    async def stream_rx(stream_id: int):
+        client = Client(
+            RTCPeerConnection(
+                RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
+            )
+        )
+
+        @client.connection.on("connectionstatechange")
+        def on_connectionstatechange():
+            print(f"connectionstatechange", client.connection.connectionState)
+
+        @client.connection.on("datachannel")
+        def on_datachannel():
+            print(f"datachannel")
+
+        @client.connection.on("icecandidate")
+        def on_icecandidate(candidate: RTCIceCandidate):
+            print(f"icecandidate", candidate)
+
+        @client.connection.on("icecandidateerror")
+        def on_icecandidateerror():
+            print(f"icecandidateerror")
+
+        @client.connection.on("iceconnectionstatechange")
+        def on_iceconnectionstatechange():
+            print(f"iceconnectionstatechange", client.connection.iceConnectionState)
+
+        @client.connection.on("negotiationneeded")
+        def on_negotiationneeded():
+            print(f"negotiationneeded")
+
+        @client.connection.on("signalingstatechange")
+        def on_signalingstatechange():
+            print(f"signalingstatechange", client.connection.signalingState)
+
+        @client.connection.on("track")
+        def on_track(track: MediaStreamTrack):
+            print(f"track")
+
+        streams[stream_id].clients.append(client)
+        for track in streams[stream_id].tracks:
+            client.connection.addTrack(track)
+        await client.connection.setRemoteDescription(
+            RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
+        )
+        await client.connection.setLocalDescription(
+            await client.connection.createAnswer()
+        )
+        if client.connection.iceGatheringState != "complete":
+            completed = Event()
+
+            @client.connection.on("icegatheringstatechange")
+            def check():
+                if client.connection.iceGatheringState == "complete":
+                    completed.set()
+
+            await completed.wait()
+        return quart.Response(
+            client.connection.localDescription.sdp,
+            status=CREATED,
+            content_type="application/sdp",
+        )
 
     app.register_blueprint(api)
     return app
