@@ -2,3 +2,5 @@
 __pycache__
 cert
 .env
+target
+db

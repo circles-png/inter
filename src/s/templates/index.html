@@ -8,37 +8,148 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 
-<body>
-    <video id="stream" autoplay playsinline controls class="w-full"></video>
+<body class="bg-black text-white flex flex-col w-full">
+    <main class="p-4 flex gap-2 w-full">
+        <video id="stream" autoplay playsinline class="grow rounded-md w-3/4"></video>
+        <div class="flex flex-col gap-2">
+            <div id="chat" class="grow p-4">
+            </div>
+            <div class="flex gap-2">
+                <input class="p-2 border border-white h-12 rounded-md" id="chat-input"
+                    placeholder="Type a message..." />
+                <button class="p-2 size-12 bg-white text-black rounded-md" id="chat-send"></button>
+            </div>
+        </div>
+    </main>
     <script>
         (async () => {
-            const SERVER = "http://127.0.0.1:5001"
-            const ENDPOINT = "/api/v1/stream/{{ stream_id }}/rx"
+            const SERVER = location.origin
+            const RX_ENDPOINT = "/api/v1/stream/{{ username }}/rx"
+            const WS_ENDPOINT = "/api/v1/stream/{{ username }}/ws"
 
             const connection = new RTCPeerConnection({
                 iceServers: [{ "urls": "stun:stun.l.google.com:19302" }]
             })
             connection.addTransceiver("video", { direction: "recvonly" })
             connection.addTransceiver("audio", { direction: "recvonly" })
+            const channel = connection.createDataChannel("chat")
+
+            channel.onmessage = event => {
+                let message = document.createElement("div")
+                let data = JSON.parse(event.data)
+                let time = document.createElement("span")
+                time.textContent = `[${data.time}] `
+                time.className = "text-gray-500"
+                message.appendChild(time)
+                console.log(data.message)
+                for (part of data.message) {
+                    switch (part.type) {
+                        case "text":
+                            message.appendChild(document.createTextNode(part.text))
+                            break
+                        case "emote":
+                            let img = document.createElement("img")
+                            img.src = part.url
+                            img.alt = part.name
+                            img.className = "inline h-8"
+                            message.appendChild(img)
+                            break
+                    }
+                }
+                document.getElementById("chat").appendChild(message)
+            }
+
+            const send = event => {
+                let message = event.target.value
+                if (!message) return
+                channel.send(message)
+                event.target.value = ""
+            }
+            const chatInput = document.getElementById("chat-input")
+            chatInput.onchange = send
+            chatInput.onkeydown = event => {
+                if (event.key === "Enter") {
+                    send(event)
+                }
+            }
+
+            document.getElementById("chat-send").onclick = () => {
+                send({ target: chatInput })
+            }
+
+            let connect = async () => {
+                let offer = await connection.createOffer()
+                connection.setLocalDescription(offer)
+                let response = await fetch(SERVER + RX_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/sdp"
+                    },
+                    body: offer.sdp
+                })
+                let answer = await response.text()
+                await connection.setRemoteDescription(new RTCSessionDescription({
+                    sdp: answer,
+                    type: "answer",
+                }))
+            }
 
             connection.ontrack = event => {
                 console.log("Received track", event.streams[0])
-                document.getElementById("stream").srcObject = event.streams[0]
+                const stream = document.getElementById("stream")
+                stream.srcObject = event.streams[0]
             }
-            let offer = await connection.createOffer()
-            connection.setLocalDescription(offer)
-            let response = await fetch(SERVER + ENDPOINT, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/sdp"
-                },
-                body: offer.sdp
-            })
-            let answer = await response.text()
-            await connection.setRemoteDescription(new RTCSessionDescription({
-                sdp: answer,
-                type: "answer",
-            }))
+            connection.onconnectionstatechange = async event => {
+                console.log("onconnectionstatechange", connection.connectionState)
+                if (connection.connectionState === "disconnected") {
+                    await connect()
+                }
+            }
+            connection.ondatachannel = event => {
+                console.log("ondatachannel", event)
+            }
+            connection.onicecandidate = async event => {
+                console.log("onicecandidate", event)
+                if (!event.candidate) return
+
+                const ws = new WebSocket(SERVER + WS_ENDPOINT)
+                await new Promise(resolve => {
+                    ws.onopen = resolve
+                })
+                ws.send(JSON.stringify({
+                    type: "candidate", candidate: {
+                        component: { "rtp": 1, "rtcp": 2 }[event.candidate.component],
+                        foundation: event.candidate.foundation,
+                        ip: event.candidate.address,
+                        port: event.candidate.port,
+                        priority: event.candidate.priority,
+                        protocol: event.candidate.protocol,
+                        type: event.candidate.type,
+                        relatedAddress: event.candidate.relatedAddress,
+                        relatedPort: event.candidate.relatedPort,
+                        sdpMid: event.candidate.sdpMid,
+                        sdpMLineIndex: event.candidate.sdpMLineIndex,
+                        tcpType: event.candidate.tcpType,
+                    }
+                }))
+            }
+            connection.onicecandidateerror = event => {
+                console.log("onicecandidateerror", event)
+            }
+            connection.oniceconnectionstatechange = event => {
+                console.log("oniceconnectionstatechange", connection.iceConnectionState)
+            }
+            connection.onicegatheringstatechange = event => {
+                console.log("onicegatheringstatechange", connection.iceGatheringState)
+            }
+            connection.onnegotiationneeded = event => {
+                console.log("onnegotiationneeded", event)
+            }
+            connection.onsignalingstatechange = event => {
+                console.log("onsignalingstatechange", connection.signalingState)
+            }
+
+            await connect()
         })()
     </script>
 </body>

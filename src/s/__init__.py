@@ -1,23 +1,29 @@
-from asyncio import Event, get_event_loop, set_event_loop
+from asyncio import Event, get_event_loop
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from http.client import CREATED, OK
-import time
+import json
+from os import environ
+from random import choice
+from sqlite3 import Connection, connect
+from typing import Callable
 from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
+    RTCDataChannel,
     RTCIceCandidate,
     RTCIceServer,
     RTCPeerConnection,
+    RTCRtpSender,
     RTCSessionDescription,
 )
+import aiortc
+import aiortc.contrib
+import aiortc.contrib.media
 import quart
-from quart import request
+from quart import abort, request, websocket
 from quart_cors import cors
-
-
-def ntp_now():
-    NTP_DELTA = 2208988800
-    return int(time.time() + NTP_DELTA)
+import requests
 
 
 class Stream:
@@ -25,39 +31,98 @@ class Stream:
         self.connection = connection
         self.tracks: list[MediaStreamTrack] = []
         self.clients: list[Client] = []
+        self.relay = aiortc.contrib.media.MediaRelay()
 
 
 class Client:
     def __init__(self, connection: RTCPeerConnection) -> None:
         self.connection = connection
+        self.chat: RTCDataChannel | None = None
+        self.senders: list[RTCRtpSender] = []
+
+
+class User:
+    def __init__(
+        self,
+        username: str,
+        stream_token: str | None,
+    ) -> None:
+        self.username = username
+        self.stream_token = stream_token
+        self.stream: Stream | None = None
+
+
+class Users:
+    def __init__(self) -> None:
+        with connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute("select username, stream_token from users")
+            self.users: list[User] = [
+                User(username, stream_token)
+                for username, stream_token in cursor.fetchall()
+            ]
+
+    def find_by_token(self, token: str) -> User | None:
+        return self.find(lambda user: user.stream_token == token)
+
+    def find_by_username(self, username: str) -> User | None:
+        return self.find(lambda user: user.username == username)
+
+    def find(self, condition: Callable[[User], bool]) -> User | None:
+        return next((user for user in self.users if condition(user)), None)
+
+    def choice(self) -> User:
+        return choice(self.users)
 
 
 def create_app():
-    ADDRESS = "127.0.0.1"
-
     get_event_loop().set_default_executor(ThreadPoolExecutor(8))
     app = quart.Quart(__name__)
     cors(app, allow_origin="*")
-    streams: list[Stream] = []
+    users = Users()
+
+    emotes = {
+        emote[
+            "name"
+        ]: f"http:{emote['data']['host']['url']}/{emote['data']['host']['files'][1]['name']}"
+        for emote in requests.get(
+            f"https://7tv.io/v3/emote-sets/{environ["EMOTE_SET"]}"
+        ).json()["emotes"]
+    }
+
     api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
 
-    @app.route("/<int:stream_id>")
-    async def index(stream_id: int):
-        print(stream_id)
-        return await quart.render_template("index.html", stream_id=stream_id)
+    @app.route("/")
+    async def home():
+        return quart.redirect(f"/{users.choice().username}")
+
+    @app.route("/<string:username>")
+    async def watch(username: str):
+        return await quart.render_template("index.html", username=username)
 
     @api.route("/stream", methods=["POST", "DELETE"])
     async def stream():
+        token = request.headers.get("Authorization")
+        if not token:
+            return abort(401)
         stream = Stream(
             RTCPeerConnection(
                 RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
-            )
+            ),
         )
-        streams.append(stream)
+        user = users.find_by_token(token[7:])
+        if not user:
+            return abort(401)
+        user.stream = stream
 
         @stream.connection.on("connectionstatechange")
-        def on_connectionstatechange():
+        async def on_connectionstatechange():
             print(f"tx connectionstatechange", stream.connection.connectionState)
+            if stream.connection.connectionState == "closed":
+                await stream.connection.close()
+                for client in stream.clients:
+                    await client.connection.close()
+                user.stream = None
 
         @stream.connection.on("datachannel")
         def on_datachannel():
@@ -94,36 +159,47 @@ def create_app():
         await stream.connection.setLocalDescription(
             await stream.connection.createAnswer()
         )
-        if stream.connection.iceGatheringState != "complete":
-            completed = Event()
-
-            @stream.connection.on("icegatheringstatechange")
-            def check():
-                if stream.connection.iceGatheringState == "complete":
-                    completed.set()
-
-            await completed.wait()
         return quart.Response(
             stream.connection.localDescription.sdp,
             status=CREATED,
             content_type="application/sdp",
-            headers={
-                "Location": f"http://{ADDRESS}:5001/api/v1/stream/{len(streams) - 1}/tx"
-            },
+            headers={"Location": f"{request.host_url}api/v1/stream/{user.username}/tx"},
         )
 
-    @api.route("/stream/<int:stream_id>/tx", methods=["POST", "PATCH"])
-    async def stream_tx(stream_id: int):
-        print("TX endpoint called:", stream_id)
+    @api.websocket("/stream/<string:username>/ws")
+    async def ws(username: str):
+        data = await websocket.receive_json()
+        match data["type"]:
+            case "candidate":
+                user = users.find_by_username(username)
+                if not user:
+                    return await websocket.close(code=4004)
+                stream = user.stream
+                if stream:
+                    await stream.connection.addIceCandidate(
+                        RTCIceCandidate(**data["candidate"])
+                    )
+            case _:
+                pass
+
+    @api.route("/stream/<string:username>/tx", methods=["POST", "PATCH"])
+    async def stream_tx(username: str):
+        print("TX endpoint called:", username)
         return quart.Response(status=OK)
 
-    @api.route("/stream/<int:stream_id>/tx", methods=["DELETE"])
-    async def stream_tx_delete(stream_id: int):
-        print("TX endpoint deleted at stream id:", stream_id)
+    @api.route("/stream/<string:username>/tx", methods=["DELETE"])
+    async def stream_tx_delete(username: str):
+        print("TX endpoint deleted at username:", username)
         return quart.Response(status=OK)
 
-    @api.route("/stream/<int:stream_id>/rx", methods=["POST", "PATCH"])
-    async def stream_rx(stream_id: int):
+    @api.route("/stream/<string:username>/rx", methods=["POST", "PATCH"])
+    async def stream_rx(username: str):
+        user = users.find_by_username(username)
+        if not user:
+            return abort(404)
+        if not user.stream:
+            return abort(404)
+        stream = user.stream
         client = Client(
             RTCPeerConnection(
                 RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
@@ -131,12 +207,40 @@ def create_app():
         )
 
         @client.connection.on("connectionstatechange")
-        def on_connectionstatechange():
+        async def on_connectionstatechange():
             print(f"connectionstatechange", client.connection.connectionState)
+            if client.connection.connectionState == "closed":
+                await client.connection.close()
+                if client.chat:
+                    client.chat.close()
+                stream.clients.remove(client)
 
         @client.connection.on("datachannel")
-        def on_datachannel():
-            print(f"datachannel")
+        def on_datachannel(channel: RTCDataChannel):
+            print(f"datachannel", channel)
+            client.chat = channel
+
+            @channel.on("message")
+            def on_message(data: str):
+                print("message", data)
+                for client in stream.clients:
+                    if client.chat:
+                        message = [
+                            (
+                                {"type": "emote", "url": emotes.get(part), "name": part}
+                                if emotes.get(part)
+                                else {"type": "text", "text": part + " "}
+                            )
+                            for part in data.split(" ")
+                        ]
+                        client.chat.send(
+                            json.dumps(
+                                {
+                                    "time": datetime.now().strftime("%I:%M:%S"),
+                                    "message": message,
+                                }
+                            )
+                        )
 
         @client.connection.on("icecandidate")
         def on_icecandidate(candidate: RTCIceCandidate):
@@ -162,24 +266,17 @@ def create_app():
         def on_track(track: MediaStreamTrack):
             print(f"track")
 
-        streams[stream_id].clients.append(client)
-        for track in streams[stream_id].tracks:
-            client.connection.addTrack(track)
+        stream.clients.append(client)
+        for track in stream.tracks:
+            client.senders.append(
+                client.connection.addTrack(stream.relay.subscribe(track))
+            )
         await client.connection.setRemoteDescription(
             RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
         )
         await client.connection.setLocalDescription(
             await client.connection.createAnswer()
         )
-        if client.connection.iceGatheringState != "complete":
-            completed = Event()
-
-            @client.connection.on("icegatheringstatechange")
-            def check():
-                if client.connection.iceGatheringState == "complete":
-                    completed.set()
-
-            await completed.wait()
         return quart.Response(
             client.connection.localDescription.sdp,
             status=CREATED,
