@@ -81,13 +81,15 @@ def create_app():
     cors(app, allow_origin="*")
     users = Users()
 
-    emotes = {
+    emotes: dict[str, str] = {
         emote[
             "name"
         ]: f"http:{emote['data']['host']['url']}/{emote['data']['host']['files'][1]['name']}"
-        for emote in requests.get(
+        for emote in [*requests.get(
             f"https://7tv.io/v3/emote-sets/{environ["EMOTE_SET"]}"
-        ).json()["emotes"]
+        ).json()["emotes"], *requests.get(
+            f"https://7tv.io/v3/emote-sets/global"
+        ).json()["emotes"]]
     }
 
     api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
@@ -219,6 +221,16 @@ def create_app():
         def on_datachannel(channel: RTCDataChannel):
             print(f"datachannel", channel)
             client.chat = channel
+            channel.send(
+                json.dumps(
+                    {
+                        "type": "emotes",
+                        "emotes": [
+                            {"name": name, "url": url} for name, url in emotes.items()
+                        ],
+                    }
+                )
+            )
 
             @channel.on("message")
             def on_message(data: str):
@@ -236,6 +248,7 @@ def create_app():
                         client.chat.send(
                             json.dumps(
                                 {
+                                    "type": "message",
                                     "time": datetime.now().strftime("%I:%M:%S"),
                                     "message": message,
                                 }

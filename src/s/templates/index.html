@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 
 <head>
     <meta charset="UTF-8">
@@ -8,16 +8,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 
-<body class="bg-black text-white flex flex-col w-full">
-    <main class="p-4 flex gap-2 w-full">
-        <video id="stream" autoplay playsinline class="grow rounded-md w-3/4"></video>
-        <div class="flex flex-col gap-2">
-            <div id="chat" class="grow p-4">
+<body class="bg-black text-white flex flex-col h-full">
+    <nav class="h-16 border-b border-white flex items-center px-4">
+        s
+    </nav>
+    <main class="p-4 flex gap-2 flex-col lg:flex-row lg:p-4 h-full items-center grow">
+        <div class="relative lg:w-3/4">
+            <video id="stream" playsinline class="rounded-md"></video>
+        </div>
+        <div class="flex flex-col gap-2 grow self-stretch">
+            <div id="chat" class="grow p-4 overflow-y-auto">
             </div>
-            <div class="flex gap-2">
-                <input class="p-2 border border-white h-12 rounded-md" id="chat-input"
+            <div class="flex gap-4 relative">
+                <div id="suggestions" class="p-4 rounded-md bottom-full inset-x-0 absolute"></div>
+                <input class="p-4 border border-white h-12 rounded-md grow" id="chat-input"
                     placeholder="Type a message..." />
-                <button class="p-2 size-12 bg-white text-black rounded-md" id="chat-send"></button>
+                <button class="p-4 size-12 bg-white text-black rounded-md" id="chat-send"></button>
             </div>
         </div>
     </main>
@@ -33,30 +39,39 @@
             connection.addTransceiver("video", { direction: "recvonly" })
             connection.addTransceiver("audio", { direction: "recvonly" })
             const channel = connection.createDataChannel("chat")
+            let emotes = null
+
+            const suggestions = document.getElementById("suggestions")
 
             channel.onmessage = event => {
-                let message = document.createElement("div")
                 let data = JSON.parse(event.data)
-                let time = document.createElement("span")
-                time.textContent = `[${data.time}] `
-                time.className = "text-gray-500"
-                message.appendChild(time)
-                console.log(data.message)
-                for (part of data.message) {
-                    switch (part.type) {
-                        case "text":
-                            message.appendChild(document.createTextNode(part.text))
-                            break
-                        case "emote":
-                            let img = document.createElement("img")
-                            img.src = part.url
-                            img.alt = part.name
-                            img.className = "inline h-8"
-                            message.appendChild(img)
-                            break
-                    }
+                switch (data.type) {
+                    case "emotes":
+                        emotes = data.emotes
+                        break
+                    case "message":
+                        let message = document.createElement("div")
+                        let time = document.createElement("span")
+                        time.textContent = `[${data.time}] `
+                        time.className = "text-gray-500"
+                        message.appendChild(time)
+                        for (part of data.message) {
+                            switch (part.type) {
+                                case "text":
+                                    message.appendChild(document.createTextNode(part.text))
+                                    break
+                                case "emote":
+                                    let img = document.createElement("img")
+                                    img.src = part.url
+                                    img.alt = part.name
+                                    img.className = "inline h-8"
+                                    message.appendChild(img)
+                                    message.appendChild(document.createTextNode(" "))
+                                    break
+                            }
+                        }
+                        document.getElementById("chat").appendChild(message)
                 }
-                document.getElementById("chat").appendChild(message)
             }
 
             const send = event => {
@@ -64,9 +79,33 @@
                 if (!message) return
                 channel.send(message)
                 event.target.value = ""
+                suggestions.innerHTML = ""
             }
             const chatInput = document.getElementById("chat-input")
-            chatInput.onchange = send
+            chatInput.oninput = () => {
+                parts = chatInput.value.split(" ")
+                suggestions.innerHTML = ""
+                if (!emotes) return
+                if (parts.length === 0 || !parts[parts.length - 1]) return
+                for (const emote of emotes.filter(emote => emote.name.startsWith(parts[parts.length - 1])).slice(0, 5)) {
+                    let suggestion = document.createElement("button")
+                    suggestion.className = "flex items-center gap-2"
+                    suggestion.onclick = () => {
+                        parts[parts.length - 1] = emote.name
+                        chatInput.value = parts.join(" ") + " "
+                        suggestions.innerHTML = ""
+                        chatInput.focus()
+                    }
+                    let img = document.createElement("img")
+                    img.src = emote.url
+                    img.alt = emote.name
+                    img.className = "h-8"
+                    suggestion.appendChild(img)
+                    suggestion.appendChild(document.createTextNode(emote.name))
+                    suggestions.appendChild(suggestion)
+                }
+
+            }
             chatInput.onkeydown = event => {
                 if (event.key === "Enter") {
                     send(event)
