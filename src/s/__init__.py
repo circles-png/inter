@@ -1,11 +1,9 @@
-from asyncio import Event, get_event_loop
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from http.client import CREATED, OK
 import json
 from os import environ
 from random import choice
-from sqlite3 import Connection, connect
+from sqlite3 import connect
 from typing import Callable
 from aiortc import (
     MediaStreamTrack,
@@ -14,7 +12,6 @@ from aiortc import (
     RTCIceCandidate,
     RTCIceServer,
     RTCPeerConnection,
-    RTCRtpSender,
     RTCSessionDescription,
 )
 import aiortc
@@ -38,7 +35,6 @@ class Client:
     def __init__(self, connection: RTCPeerConnection) -> None:
         self.connection = connection
         self.chat: RTCDataChannel | None = None
-        self.senders: list[RTCRtpSender] = []
 
 
 class User:
@@ -76,7 +72,6 @@ class Users:
 
 
 def create_app():
-    get_event_loop().set_default_executor(ThreadPoolExecutor(8))
     app = quart.Quart(__name__)
     cors(app, allow_origin="*")
     users = Users()
@@ -85,11 +80,12 @@ def create_app():
         emote[
             "name"
         ]: f"http:{emote['data']['host']['url']}/{emote['data']['host']['files'][1]['name']}"
-        for emote in [*requests.get(
-            f"https://7tv.io/v3/emote-sets/{environ["EMOTE_SET"]}"
-        ).json()["emotes"], *requests.get(
-            f"https://7tv.io/v3/emote-sets/global"
-        ).json()["emotes"]]
+        for emote in [
+            *requests.get(
+                f"https://7tv.io/v3/emote-sets/{environ["EMOTE_SET"]}"
+            ).json()["emotes"],
+            *requests.get(f"https://7tv.io/v3/emote-sets/global").json()["emotes"],
+        ]
     }
 
     api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
@@ -281,9 +277,7 @@ def create_app():
 
         stream.clients.append(client)
         for track in stream.tracks:
-            client.senders.append(
-                client.connection.addTrack(stream.relay.subscribe(track))
-            )
+            sender = client.connection.addTrack(stream.relay.subscribe(track))
         await client.connection.setRemoteDescription(
             RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
         )
