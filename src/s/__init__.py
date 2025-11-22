@@ -94,6 +94,10 @@ def create_app():
     async def home():
         return quart.redirect(f"/{users.choice().username}")
 
+    @app.route("/<string:username>/js/index")
+    async def index_js(username: str):
+        return await quart.render_template("js/index.js", username=username)
+
     @app.route("/<string:username>")
     async def watch(username: str):
         return await quart.render_template("index.html", username=username)
@@ -120,7 +124,6 @@ def create_app():
                 await stream.connection.close()
                 for client in stream.clients:
                     await client.connection.close()
-                user.stream = None
 
         @stream.connection.on("datachannel")
         def on_datachannel():
@@ -277,7 +280,7 @@ def create_app():
 
         stream.clients.append(client)
         for track in stream.tracks:
-            sender = client.connection.addTrack(stream.relay.subscribe(track))
+            client.connection.addTrack(stream.relay.subscribe(track))
         await client.connection.setRemoteDescription(
             RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
         )
