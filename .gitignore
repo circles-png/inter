@@ -3,4 +3,4 @@ __pycache__
 cert
 .env
 target
-db
+db/database.db

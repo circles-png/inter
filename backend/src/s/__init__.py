@@ -3,7 +3,7 @@ from http.client import CREATED, OK
 import json
 from os import environ
 from random import choice
-from sqlite3 import connect
+import sqlite3
 from typing import Callable
 from aiortc import (
     MediaStreamTrack,
@@ -17,6 +17,8 @@ from aiortc import (
 import aiortc
 import aiortc.contrib
 import aiortc.contrib.media
+from dotenv import load_dotenv
+import psycopg2
 import quart
 from quart import abort, request, websocket
 from quart_cors import cors
@@ -50,7 +52,13 @@ class User:
 
 class Users:
     def __init__(self) -> None:
-        with connect(environ["DATABASE_PATH"]) as db:
+        with (
+            psycopg2.connect(
+                host="127.0.0.1", database="s", user="postgres", password="s", port=5432
+            )
+            if environ.get("PROD")
+            else sqlite3.connect(environ["DATABASE_PATH"])
+        ) as db:
             cursor = db.cursor()
             cursor.execute("select username, stream_token from users")
             self.users: list[User] = [
@@ -72,6 +80,8 @@ class Users:
 
 
 def create_app():
+    load_dotenv()
+
     app = quart.Quart(__name__)
     cors(app, allow_origin="*")
     users = Users()
@@ -90,10 +100,6 @@ def create_app():
 
     api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
 
-    @app.route("/")
-    async def home():
-        return quart.redirect(f"/{users.choice().username}")
-
     @app.route("/<string:username>/js/index")
     async def index_js(username: str):
         return await quart.render_template("js/index.js", username=username)
@@ -101,6 +107,10 @@ def create_app():
     @app.route("/<string:username>")
     async def watch(username: str):
         return await quart.render_template("index.html", username=username)
+
+    @api.route("/random", methods=["GET"])
+    async def random():
+        return users.choice().username
 
     @api.route("/stream", methods=["POST", "DELETE"])
     async def stream():

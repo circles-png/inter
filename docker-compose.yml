@@ -1,0 +1,27 @@
+name: s
+
+services:
+  db:
+    build: db
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "127.0.0.1:5432:5432"
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:3000"
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+  backend:
+    build: ./backend
+    depends_on:
+      - db
+    network_mode: host
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: .
