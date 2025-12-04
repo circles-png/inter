@@ -1,8 +1,14 @@
+from asyncio import Queue, ensure_future, gather
 from datetime import datetime
+from functools import reduce
+from hashlib import sha256
 from http.client import CREATED, OK
 import json
+from math import floor
 from os import environ
+from os.path import exists, join
 from random import choice
+import secrets
 import sqlite3
 from typing import Callable
 from aiortc import (
@@ -18,7 +24,6 @@ import aiortc
 import aiortc.contrib
 import aiortc.contrib.media
 from dotenv import load_dotenv
-import psycopg2
 import quart
 from quart import abort, request, websocket
 from quart_cors import cors
@@ -31,6 +36,7 @@ class Stream:
         self.tracks: list[MediaStreamTrack] = []
         self.clients: list[Client] = []
         self.relay = aiortc.contrib.media.MediaRelay()
+        self.client_ws_queues: list[Queue[dict[str, str]]] = []
 
 
 class Client:
@@ -52,13 +58,7 @@ class User:
 
 class Users:
     def __init__(self) -> None:
-        with (
-            psycopg2.connect(
-                host="127.0.0.1", database="s", user="postgres", password="s", port=5432
-            )
-            if environ.get("PROD")
-            else sqlite3.connect(environ["DATABASE_PATH"])
-        ) as db:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()
             cursor.execute("select username, stream_token from users")
             self.users: list[User] = [
@@ -82,7 +82,7 @@ class Users:
 def create_app():
     load_dotenv()
 
-    app = quart.Quart(__name__)
+    app = quart.Quart(__name__, static_folder="../../../frontend/build")
     cors(app, allow_origin="*")
     users = Users()
 
@@ -104,16 +104,24 @@ def create_app():
     async def index_js(username: str):
         return await quart.render_template("js/index.js", username=username)
 
-    @app.route("/<string:username>")
-    async def watch(username: str):
-        return await quart.render_template("index.html", username=username)
+    @app.route("/")
+    async def random():
+        return quart.redirect(f"/{users.choice().username}")
+
+    @app.route("/<path:path>")
+    async def watch(path: str):
+        if exists(join(app.static_folder, path)):
+            return await quart.send_from_directory(app.static_folder, path)
+        return await quart.send_file(join(app.static_folder, "index.html"))
 
     @api.route("/random", methods=["GET"])
     async def random():
         return users.choice().username
 
-    @api.route("/stream", methods=["POST", "DELETE"])
-    async def stream():
+    stream = quart.Blueprint("stream", __name__, url_prefix="/stream/")
+
+    @stream.route("/", methods=["POST", "DELETE"])
+    async def start_stream():
         token = request.headers.get("Authorization")
         if not token:
             return abort(401)
@@ -130,10 +138,8 @@ def create_app():
         @stream.connection.on("connectionstatechange")
         async def on_connectionstatechange():
             print(f"tx connectionstatechange", stream.connection.connectionState)
-            if stream.connection.connectionState == "closed":
-                await stream.connection.close()
-                for client in stream.clients:
-                    await client.connection.close()
+            for queue in stream.client_ws_queues:
+                await queue.put({"type": "stream_started"})
 
         @stream.connection.on("datachannel")
         def on_datachannel():
@@ -177,33 +183,48 @@ def create_app():
             headers={"Location": f"{request.host_url}api/v1/stream/{user.username}/tx"},
         )
 
-    @api.websocket("/stream/<string:username>/ws")
+    @stream.websocket("/<string:username>/ws")
     async def ws(username: str):
-        data = await websocket.receive_json()
-        match data["type"]:
-            case "candidate":
-                user = users.find_by_username(username)
-                if not user:
-                    return await websocket.close(code=4004)
-                stream = user.stream
-                if stream:
-                    await stream.connection.addIceCandidate(
-                        RTCIceCandidate(**data["candidate"])
-                    )
-            case _:
-                pass
+        user = users.find_by_username(username)
+        if not user:
+            return await websocket.close(code=4004)
+        stream = user.stream
+        queue = Queue(maxsize=10)
+        if stream:
+            stream.client_ws_queues.append(queue)
 
-    @api.route("/stream/<string:username>/tx", methods=["POST", "PATCH"])
+        async def rx():
+            while True:
+                data = await websocket.receive_json()
+                print(data)
+                match data["type"]:
+                    case "candidate":
+                        if stream:
+                            await stream.connection.addIceCandidate(
+                                RTCIceCandidate(**data["candidate"])
+                            )
+                    case _:
+                        pass
+
+        async def tx():
+            while True:
+                message = await queue.get()
+                print(message)
+                await websocket.send_json(message)
+
+        await gather(ensure_future(rx()), ensure_future(tx()))
+
+    @stream.route("/<string:username>/tx", methods=["POST", "PATCH"])
     async def stream_tx(username: str):
         print("TX endpoint called:", username)
         return quart.Response(status=OK)
 
-    @api.route("/stream/<string:username>/tx", methods=["DELETE"])
+    @stream.route("/<string:username>/tx", methods=["DELETE"])
     async def stream_tx_delete(username: str):
         print("TX endpoint deleted at username:", username)
         return quart.Response(status=OK)
 
-    @api.route("/stream/<string:username>/rx", methods=["POST", "PATCH"])
+    @stream.route("/<string:username>/rx", methods=["POST", "PATCH"])
     async def stream_rx(username: str):
         user = users.find_by_username(username)
         if not user:
@@ -244,16 +265,35 @@ def create_app():
             @channel.on("message")
             def on_message(data: str):
                 print("message", data)
+                message = reduce(
+                    lambda message, part: (
+                        message
+                        + [
+                            {
+                                "type": "emote",
+                                "url": emotes.get(part),
+                                "name": part,
+                            }
+                        ]
+                        if emotes.get(part)
+                        else (
+                            message[:-1]
+                            + [
+                                {
+                                    "type": "text",
+                                    "text": message[-1]["text"] + part + " ",
+                                }
+                            ]
+                            if message[-1]["type"] == "text"
+                            else message
+                            + [{"type": "text", "text": part + " "}]
+                        )
+                    ),
+                    data.split(" "),
+                    [],
+                )
                 for client in stream.clients:
                     if client.chat:
-                        message = [
-                            (
-                                {"type": "emote", "url": emotes.get(part), "name": part}
-                                if emotes.get(part)
-                                else {"type": "text", "text": part + " "}
-                            )
-                            for part in data.split(" ")
-                        ]
                         client.chat.send(
                             json.dumps(
                                 {
@@ -290,7 +330,8 @@ def create_app():
 
         stream.clients.append(client)
         for track in stream.tracks:
-            client.connection.addTrack(stream.relay.subscribe(track))
+            track = stream.relay.subscribe(track)
+            client.connection.addTrack(track)
         await client.connection.setRemoteDescription(
             RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
         )
@@ -303,5 +344,88 @@ def create_app():
             content_type="application/sdp",
         )
 
+    @api.route("/auth/signup", methods=["POST"])
+    async def auth_signup():
+        data = await request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        if not username or not password:
+            return abort(400)
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "insert into users (username, stream_token, password_hash) values (?, ?, ?)",
+                (
+                    username,
+                    generate_secure_random_string(),
+                    sha256(password.encode()).digest(),
+                ),
+            )
+        session = Session()
+        response = quart.redirect("/")
+        response.headers["Set-Cookie"] = (
+            f"session_token={session.token}; Max-Age=86400; HttpOnly; Secure; Path=/; SameSite=Lax"
+        )
+        return response
+
+    api.register_blueprint(stream)
     app.register_blueprint(api)
     return app
+
+
+class Session:
+    def __init__(self) -> None:
+        self.id = generate_secure_random_string()
+        secret = generate_secure_random_string()
+        self.secret_hash = sha256(secret.encode()).digest()
+        self.created_at = datetime.now()
+        self.token = f"{self.id}.{secret}"
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "insert into sessions (id, secret_hash, created_at) values (?, ?, ?)",
+                (self.id, self.secret_hash, floor(self.created_at.timestamp())),
+            )
+
+    @staticmethod
+    def validate_token(token: str) -> "Session | None":
+        parts = token.split(".")
+        if len(parts) != 2:
+            return None
+        session_id, secret = parts
+        session = Session.get(session_id)
+        if not session:
+            return None
+        secret_hash = sha256(secret.encode()).digest()
+        if not secrets.compare_digest(secret_hash, session.secret_hash):
+            return None
+        return session
+
+    @staticmethod
+    def get(session_id: str) -> "Session | None":
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select id, secret_hash, created_at from sessions where id = ?",
+                (session_id,),
+            )
+            session_id, secret_hash, created_at = cursor.fetchone()
+        created_at = datetime.fromtimestamp(created_at)
+        if (datetime.now() - created_at).total_seconds() > 60 * 60 * 24:
+            Session.delete(session_id)
+            return None
+        session = Session.__new__(Session)
+        session.id = session_id
+        session.secret_hash = secret_hash
+        session.created_at = created_at
+        return session
+
+    @staticmethod
+    def delete(session_id: str) -> None:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "delete from sessions where id = ?",
+                (session_id,),
+            )
+
+
+def generate_secure_random_string() -> str:
+    return secrets.token_urlsafe(32)

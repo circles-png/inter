@@ -6,13 +6,30 @@
   import ResizableHandle from "$lib/components/ui/resizable/resizable-handle.svelte"
   import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte"
   import { getStreamEndpoint } from "$lib/utils.svelte"
+  import type { Emote } from "../../models/emote"
+  import type { Message } from "../../models/message"
+  import type { User } from "../../models/user"
+  import Chat from "../../stories/Chat.svelte"
+  import Details from "../../stories/Details.svelte"
   import Header from "../../stories/Header.svelte"
 
-  type Emote = { name: string; url: string }
-  type Fragment = ({ type: Emote } & Emote) | { type: "text"; text: string; name: string }
-  type Message = { time: string; message: Fragment[] }
+  let user = $state<User>()
+  let content = $state({
+    creator: {
+      id: 1,
+      username: "Viewer",
+      avatar: "http://picsum.photos/200",
+      colour: "#aaf",
+      roles: [],
+    },
+    title: "Sample Stream",
+    description: "This is a sample stream description.",
+    game: "Sample Game",
+    viewerCount: 1234,
+    duration: "12:34:56",
+  })
 
-  let chat = $state<Message[]>([])
+  let messages = $state<{ message: Message; user: User }[]>([])
   let emotes = $state<Emote[]>([])
   let chatInput = $state("")
   let suggestions = $derived.by(() => {
@@ -25,8 +42,7 @@
   })
   let stream = null as unknown as HTMLVideoElement
   let connectionState: { channel: RTCDataChannel; connection: RTCPeerConnection } | null = null
-  const { data } = $props()
-  const username = data.username
+  const { username } = page.params
   $effect(() => {
     ;(async () => {
       const connection = new RTCPeerConnection({
@@ -43,7 +59,7 @@
             emotes = data.emotes
             break
           case "message":
-            chat.push(data.message)
+            messages.push({ message: data.message, user: data.user })
             break
         }
       }
@@ -59,6 +75,20 @@
         await connection.setRemoteDescription(
           new RTCSessionDescription({ sdp: answer, type: "answer" }),
         )
+      }
+
+      const ws = new WebSocket(getStreamEndpoint(page.url.hostname, "ws", `stream/${username}/ws`))
+      await new Promise((resolve) => {
+        ws.onopen = resolve
+      })
+      ws.onmessage = async (event) => {
+        const data = JSON.parse(event.data)
+        console.log(data)
+        switch (data.type) {
+          case "stream_started":
+            await connect()
+            break
+        }
       }
 
       connection.ontrack = (event) => {
@@ -78,12 +108,6 @@
         console.log("onicecandidate", event)
         if (!event.candidate || !event.candidate.component) return
 
-        const ws = new WebSocket(
-          getStreamEndpoint(page.url.hostname, "ws", `stream/${username}/ws`),
-        )
-        await new Promise((resolve) => {
-          ws.onopen = resolve
-        })
         ws.send(
           JSON.stringify({
             type: "candidate",
@@ -125,11 +149,29 @@
   })
 </script>
 
-<Header />
-
-<main class="flex gap-2 flex-col lg:flex-row h-full grow">
-  <ResizablePaneGroup direction="horizontal">
-    <ResizablePane class="p-4 flex flex-col relative">
+<div class="flex lg:flex-col">
+  <Header
+    {user}
+    onLogin={() =>
+      (user = {
+        id: 1,
+        username: "User",
+        avatar: "http://picsum.photos/200",
+        colour: "#aaf",
+        roles: [],
+      })}
+    onLogout={() => (user = undefined)}
+    onCreateAccount={() =>
+      (user = {
+        id: 1,
+        username: "User",
+        avatar: "http://picsum.photos/200",
+        colour: "#aaf",
+        roles: [],
+      })}
+  />
+  <ResizablePaneGroup direction="horizontal" class="flex">
+    <ResizablePane class="relative flex flex-col gap-4 p-4">
       <video autoplay muted playsinline class="rounded-md" bind:this={stream}></video>
       <button
         class="absolute top-4 left-4 px-4 py-2 bg-black rounded-md"
@@ -138,29 +180,21 @@
           event.currentTarget.remove()
         }}>Unmute</button
       >
+      <Details {content} />
     </ResizablePane>
     <ResizableHandle />
-    <ResizablePane class="p-4 flex flex-col">
-      <div class="grow p-4 overflow-y-auto"></div>
-      <div class="flex gap-4 relative">
-        <div class="p-4 rounded-md bottom-full inset-x-0 absolute bg-black"></div>
-        <Input
-          class="p-4 border h-12 rounded-md grow"
-          placeholder="Type a message..."
-          bind:value={chatInput}
-        />
-        <Button
-          class="size-12"
-          onclick={(event) => {
-            if (!event.currentTarget) return
-            if (!chatInput) return
-            if (!connectionState) return
-            connectionState.channel.send(chatInput)
-            chatInput = ""
-            suggestions = []
-          }}
-        ></Button>
-      </div>
+    <ResizablePane class="flex flex-col *:grow">
+      <Chat
+        {messages}
+        bind:chatInput
+        onSend={() => {
+          if (!chatInput) return
+          if (!connectionState) return
+          connectionState.channel.send(chatInput)
+          chatInput = ""
+          suggestions = []
+        }}
+      />
     </ResizablePane>
   </ResizablePaneGroup>
-</main>
+</div>
