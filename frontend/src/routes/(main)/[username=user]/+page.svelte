@@ -1,7 +1,5 @@
 <script lang="ts">
   import { page } from "$app/state"
-  import Button from "$lib/components/ui/button/button.svelte"
-  import Input from "$lib/components/ui/input/input.svelte"
   import { ResizablePane } from "$lib/components/ui/resizable"
   import ResizableHandle from "$lib/components/ui/resizable/resizable-handle.svelte"
   import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte"
@@ -11,7 +9,6 @@
   import type { User } from "../../../models/user"
   import Chat from "../../../stories/Chat.svelte"
   import Details from "../../../stories/Details.svelte"
-  import Header from "../../../stories/Header.svelte"
 
   let user = $state<User>()
   let content = $state({
