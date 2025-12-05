@@ -3,11 +3,10 @@ from asyncio import Queue, ensure_future, gather
 from datetime import datetime
 from functools import reduce
 from hashlib import sha256
-from http.client import BAD_REQUEST, CONFLICT, CREATED, GONE, INTERNAL_SERVER_ERROR, OK, UNAUTHORIZED
+from http.client import BAD_REQUEST, CONFLICT, CREATED, GONE, OK, UNAUTHORIZED
 import json
 from math import floor
 from os import environ
-from os.path import exists, join
 from random import choice
 import secrets
 import sqlite3
@@ -428,6 +427,30 @@ def create_app():
             "colour": user.colour,
             "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}",
         })
+
+    @api.route("/auth/login", methods=["POST"])
+    async def login():
+        data = await request.get_json()
+        username: str = data.get("username")
+        password: str = data.get("password")
+        if not username or not password:
+            return quart.Response("Enter a username and password.", status=BAD_REQUEST)
+        user = users.find_by_username(username)
+        if not user:
+            return quart.Response("Invalid username or password.", status=UNAUTHORIZED)
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select password_hash, salt from users where id = ?",
+                (user.id,),
+            )
+            password_hash, salt = cursor.fetchone()
+        if password_hash != sha256((password + salt).encode()).digest():
+            return quart.Response("Invalid username or password.", status=UNAUTHORIZED)
+        session = Session(user.id)
+        response = quart.Response(status=OK)
+        response.set_cookie("session_token", session.token, max_age=86400, secure=True, samesite="Lax")
+        return response
 
     @api.route("/avatar/<string:username>", methods=["GET"])
     async def avatar(username: str):

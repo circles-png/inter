@@ -1,7 +1,17 @@
 import type { User } from "../models/user";
 
-const user = $state<Promise<User | null>>(new Promise(() => { }))
-
-export const context = {
-  user,
+function create<T>(name, initial: T) {
+  let state = $state<T>(initial)
+  return {
+    get() {
+      return state
+    },
+    set(value: T) {
+      state = value
+    },
+  }
 }
+
+export default Object.defineProperties({} as { user: Promise<User | null> }, {
+  user: create(new Promise(() => { }))
+})

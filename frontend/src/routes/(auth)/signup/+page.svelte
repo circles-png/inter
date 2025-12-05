@@ -2,10 +2,9 @@
   import { page } from "$app/state"
   import Button from "$lib/components/ui/button/button.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
-  import "../../app.css"
-  import Field from "$lib/components/field.svelte"
-  import { Spinner } from "$lib/components/ui/spinner"
-  import { FieldGroup, FieldLegend, FieldSet } from "$lib/components/ui/field"
+  import Field, { submitButton } from "../common.svelte"
+  import { FieldGroup, FieldSet } from "$lib/components/ui/field"
+  import { toast } from "svelte-sonner"
 
   let username = $state("")
   let password = $state("")
@@ -74,6 +73,7 @@
         }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
+            toast.error("Error while signing up", {description: text})
             return Promise.reject(text)
           }
           location.replace("/")
@@ -109,35 +109,12 @@
             error={!passwordsMatch ? "Passwords do not match" : null}
             good="Passwords match!"
           />
-          {#if submit}
-            {#await submit}
-              <Button type="submit" disabled variant="secondary">
-                <Spinner />
-                Processing
-              </Button>
-            {:then response}
-              <Button type="submit" disabled variant="secondary">
-                <Spinner />
-                Redirecting
-              </Button>
-            {:catch error}
-              {@render submitButton()}
-              {error}
-            {/await}
-          {:else}
-            {@render submitButton()}
-          {/if}
+          {@render submitButton(
+            submit,
+            !username || !password || !!invalidUsername || !validPassword || !passwordsMatch,
+          )}
         </FieldGroup>
       </FieldSet>
     </form>
   </div>
 </div>
-
-{#snippet submitButton()}
-  <Button
-    type="submit"
-    disabled={!username || !password || !!invalidUsername || !validPassword || !passwordsMatch}
-  >
-    Continue
-  </Button>
-{/snippet}

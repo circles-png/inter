@@ -23,7 +23,7 @@
     SidebarGroupContent,
   } from "$lib/components/ui/sidebar"
   import { Skeleton } from "$lib/components/ui/skeleton"
-  import { context } from "$lib/context.svelte"
+  import context from "$lib/context.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
   import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
@@ -70,7 +70,7 @@
                   <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
                 </Avatar>
               </ItemMedia>
-              <ItemContent>
+              <ItemContent class="gap-0">
                 <ItemTitle>{user.displayName ?? user.username}</ItemTitle>
                 {#if user.displayName}
                   <ItemDescription>{user.username}</ItemDescription>
@@ -105,6 +105,7 @@
               class="grow"
               onclick={() => {
                 cookieStore.delete("session_token")
+                context.user = Promise.resolve(null)
               }}
             >
               Log out

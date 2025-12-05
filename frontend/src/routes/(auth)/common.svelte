@@ -1,10 +1,14 @@
+<script module>
+  export { submitButton }
+</script>
+
 <script lang="ts">
   import X from "@lucide/svelte/icons/x"
-  import { Input } from "./ui/input"
-  import { Label } from "./ui/label"
   import Check from "@lucide/svelte/icons/check"
-  import Spinner from "./ui/spinner/spinner.svelte"
-  import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field"
+  import { Field, FieldLabel, FieldError, FieldDescription } from "$lib/components/ui/field"
+  import { Input } from "$lib/components/ui/input"
+  import { Spinner } from "$lib/components/ui/spinner"
+  import { Button } from "$lib/components/ui/button"
 
   let {
     id,
@@ -20,13 +24,17 @@
     label: string
     value: string
     type?: string
-    error: (string | null) | Promise<string | null>
+    error?: (string | null) | Promise<string | null>
     invalid?: boolean
-    good: string
+    good?: string
     description?: string
   } = $props()
   const error = $derived(
-    errorPromise instanceof Promise ? errorPromise : Promise.resolve(errorPromise),
+    errorPromise !== undefined
+      ? errorPromise instanceof Promise
+        ? errorPromise
+        : Promise.resolve(errorPromise)
+      : Promise.resolve(null),
   )
   $effect(() => {
     invalid = !!value
@@ -37,7 +45,7 @@
 <Field data-invalid={invalid}>
   <FieldLabel for={id}>{label}</FieldLabel>
   <Input {id} bind:value aria-invalid={invalid} {type} name={id} />
-  {#if value}
+  {#if value && errorPromise !== undefined}
     {#await error}
       <p class="text-sm text-muted-foreground flex gap-1">
         <Spinner />
@@ -65,5 +73,29 @@
       <Check class="size-5" />
       {good}
     </p>
+  {/if}
+{/snippet}
+
+{#snippet submitButton(submit: Promise<void> | null, disabled: boolean)}
+  {#snippet submitButtonInner(disabled: boolean)}
+    <Button type="submit" {disabled}>Continue</Button>
+  {/snippet}
+
+  {#if submit}
+    {#await submit}
+      <Button type="submit" disabled variant="secondary">
+        <Spinner />
+        Processing
+      </Button>
+    {:then response}
+      <Button type="submit" disabled variant="secondary">
+        <Spinner />
+        Redirecting
+      </Button>
+    {:catch error}
+      {@render submitButtonInner(disabled)}
+    {/await}
+  {:else}
+    {@render submitButtonInner(disabled)}
   {/if}
 {/snippet}
