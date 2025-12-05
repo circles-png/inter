@@ -42,6 +42,30 @@
   })
 </script>
 
+{#snippet submitButton(submit: Promise<void> | null, disabled: boolean)}
+  {#snippet submitButtonInner(disabled: boolean)}
+    <Button type="submit" {disabled}>Continue</Button>
+  {/snippet}
+
+  {#if submit}
+    {#await submit}
+      <Button type="submit" disabled variant="secondary">
+        <Spinner />
+        Processing
+      </Button>
+    {:then}
+      <Button type="submit" disabled variant="secondary">
+        <Spinner />
+        Redirecting
+      </Button>
+    {:catch}
+      {@render submitButtonInner(disabled)}
+    {/await}
+  {:else}
+    {@render submitButtonInner(disabled)}
+  {/if}
+{/snippet}
+
 <Field data-invalid={invalid}>
   <FieldLabel for={id}>{label}</FieldLabel>
   <Input {id} bind:value aria-invalid={invalid} {type} name={id} />
@@ -73,29 +97,5 @@
       <Check class="size-5" />
       {good}
     </p>
-  {/if}
-{/snippet}
-
-{#snippet submitButton(submit: Promise<void> | null, disabled: boolean)}
-  {#snippet submitButtonInner(disabled: boolean)}
-    <Button type="submit" {disabled}>Continue</Button>
-  {/snippet}
-
-  {#if submit}
-    {#await submit}
-      <Button type="submit" disabled variant="secondary">
-        <Spinner />
-        Processing
-      </Button>
-    {:then response}
-      <Button type="submit" disabled variant="secondary">
-        <Spinner />
-        Redirecting
-      </Button>
-    {:catch error}
-      {@render submitButtonInner(disabled)}
-    {/await}
-  {:else}
-    {@render submitButtonInner(disabled)}
   {/if}
 {/snippet}

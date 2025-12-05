@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "backend"
+    }
+  ],
+  "settings": {
+    "python.analysis.diagnosticSeverityOverrides": {
+      "reportUnusedFunction": "none"
+    }
+  }
+}

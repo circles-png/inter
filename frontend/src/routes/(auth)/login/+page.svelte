@@ -4,6 +4,7 @@
   import { getApiEndpoint } from "$lib/utils.svelte"
   import Field, { submitButton } from "../common.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
+  import { toast } from "svelte-sonner"
   let username = $state("")
   let password = $state("")
   let submit: Promise<void> | null = $state(null)
@@ -26,6 +27,7 @@
         }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
+            toast.error("Error while logging in", { description: text })
             return Promise.reject(text)
           }
           location.replace("/")
