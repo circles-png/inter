@@ -3,8 +3,9 @@
   import Button from "$lib/components/ui/button/button.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
   import "../../app.css"
-  import FieldGroup from "$lib/components/field-group.svelte"
+  import Field from "$lib/components/field.svelte"
   import { Spinner } from "$lib/components/ui/spinner"
+  import { FieldGroup, FieldLegend, FieldSet } from "$lib/components/ui/field"
 
   let username = $state("")
   let password = $state("")
@@ -50,6 +51,7 @@
     }
     return null
   })
+  let invalidUsername = $state(false)
   let validPassword = $derived(password.length >= 8)
   let passwordsMatch = $derived(password === reenter)
   let submit: Promise<void> | null = $state(null)
@@ -68,6 +70,7 @@
           method: "POST",
           body: JSON.stringify({ username, password, reenter }),
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
         }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
@@ -78,50 +81,54 @@
         })
       }}
     >
-      <h1 class="text-2xl font-semibold text-center">Create an account</h1>
-      <div class="flex flex-col gap-4">
-        <FieldGroup
-          id="username"
-          label="Username"
-          bind:value={username}
-          error={usernameError}
-          good="Username looks good!"
-        />
-        <FieldGroup
-          id="password"
-          label="Password"
-          bind:value={password}
-          type="password"
-          error={!validPassword ? "Password must be at least 8 characters long" : null}
-          good="Password looks good!"
-        />
-        <FieldGroup
-          id="reenter"
-          label="Re-enter password"
-          bind:value={reenter}
-          type="password"
-          error={!passwordsMatch ? "Passwords do not match" : null}
-          good="Passwords match!"
-        />
-        {#if submit}
-          {#await submit}
-            <Button type="submit" disabled variant="secondary">
-              <Spinner />
-              Processing
-            </Button>
-          {:then response}
-            <Button type="submit" disabled variant="secondary">
-              <Spinner />
-              Redirecting
-            </Button>
-          {:catch error}
+      <FieldSet>
+        <h1 class="text-2xl font-semibold text-center">Create an account</h1>
+        <FieldGroup>
+          <Field
+            id="username"
+            label="Username"
+            bind:value={username}
+            error={usernameError}
+            bind:invalid={invalidUsername}
+            good="Username looks good!"
+            description="Your unique user handle."
+          />
+          <Field
+            id="password"
+            label="Password"
+            bind:value={password}
+            type="password"
+            error={!validPassword ? "Password must be at least 8 characters long" : null}
+            good="Password looks good!"
+          />
+          <Field
+            id="reenter"
+            label="Re-enter password"
+            bind:value={reenter}
+            type="password"
+            error={!passwordsMatch ? "Passwords do not match" : null}
+            good="Passwords match!"
+          />
+          {#if submit}
+            {#await submit}
+              <Button type="submit" disabled variant="secondary">
+                <Spinner />
+                Processing
+              </Button>
+            {:then response}
+              <Button type="submit" disabled variant="secondary">
+                <Spinner />
+                Redirecting
+              </Button>
+            {:catch error}
+              {@render submitButton()}
+              {error}
+            {/await}
+          {:else}
             {@render submitButton()}
-            {error}
-          {/await}
-        {:else}
-          {@render submitButton()}
-        {/if}
-      </div>
+          {/if}
+        </FieldGroup>
+      </FieldSet>
     </form>
   </div>
 </div>
@@ -129,7 +136,7 @@
 {#snippet submitButton()}
   <Button
     type="submit"
-    disabled={!username || !password || !!usernameError || !validPassword || !passwordsMatch}
+    disabled={!username || !password || !!invalidUsername || !validPassword || !passwordsMatch}
   >
     Continue
   </Button>

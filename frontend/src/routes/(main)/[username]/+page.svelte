@@ -149,52 +149,30 @@
   })
 </script>
 
-<div class="flex lg:flex-col">
-  <Header
-    {user}
-    onLogin={() =>
-      (user = {
-        id: 1,
-        username: "User",
-        avatar: "http://picsum.photos/200",
-        colour: "#aaf",
-        roles: [],
-      })}
-    onLogout={() => (user = undefined)}
-    onCreateAccount={() =>
-      (user = {
-        id: 1,
-        username: "User",
-        avatar: "http://picsum.photos/200",
-        colour: "#aaf",
-        roles: [],
-      })}
-  />
-  <ResizablePaneGroup direction="horizontal" class="flex">
-    <ResizablePane class="relative flex flex-col gap-4 p-4">
-      <video autoplay muted playsinline class="rounded-md" bind:this={stream}></video>
-      <button
-        class="absolute top-4 left-4 px-4 py-2 bg-black rounded-md"
-        onclick={(event) => {
-          stream.muted = false
-          event.currentTarget.remove()
-        }}>Unmute</button
-      >
-      <Details {content} />
-    </ResizablePane>
-    <ResizableHandle />
-    <ResizablePane class="flex flex-col *:grow">
-      <Chat
-        {messages}
-        bind:chatInput
-        onSend={() => {
-          if (!chatInput) return
-          if (!connectionState) return
-          connectionState.channel.send(chatInput)
-          chatInput = ""
-          suggestions = []
-        }}
-      />
-    </ResizablePane>
-  </ResizablePaneGroup>
-</div>
+<ResizablePaneGroup direction="horizontal" class="flex">
+  <ResizablePane class="relative flex flex-col gap-4 p-4">
+    <video autoplay muted playsinline class="rounded-md" bind:this={stream}></video>
+    <button
+      class="absolute top-4 left-4 px-4 py-2 bg-black rounded-md"
+      onclick={(event) => {
+        stream.muted = false
+        event.currentTarget.remove()
+      }}>Unmute</button
+    >
+    <Details {content} />
+  </ResizablePane>
+  <ResizableHandle />
+  <ResizablePane class="flex flex-col *:grow">
+    <Chat
+      {messages}
+      bind:chatInput
+      onSend={() => {
+        if (!chatInput) return
+        if (!connectionState) return
+        connectionState.channel.send(chatInput)
+        chatInput = ""
+        suggestions = []
+      }}
+    />
+  </ResizablePane>
+</ResizablePaneGroup>

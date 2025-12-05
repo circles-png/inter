@@ -3,7 +3,7 @@ from asyncio import Queue, ensure_future, gather
 from datetime import datetime
 from functools import reduce
 from hashlib import sha256
-from http.client import BAD_REQUEST, CONFLICT, CREATED, OK
+from http.client import BAD_REQUEST, CONFLICT, CREATED, GONE, INTERNAL_SERVER_ERROR, OK, UNAUTHORIZED
 import json
 from math import floor
 from os import environ
@@ -49,13 +49,17 @@ class Client:
 class User:
     def __init__(
         self,
+        user_id: int,
         username: str,
+        display_name: str | None,
         stream_token: str | None,
     ) -> None:
+        self.id = user_id
         self.username = username
+        self.display_name = display_name
         self.stream_token = stream_token
         self.stream: Stream | None = None
-
+        self.colour: int = 0
 
 class Users:
     def __init__(self) -> None:
@@ -63,6 +67,9 @@ class Users:
 
     def find_by_token(self, token: str) -> User | None:
         return self.find(lambda user: user.stream_token == token)
+
+    def find_by_id(self, user_id: int) -> User | None:
+        return self.find(lambda user: user.id == user_id)
 
     def find_by_username(self, username: str) -> User | None:
         return self.find(lambda user: user.username == username)
@@ -79,33 +86,46 @@ class Users:
     def reload(self) -> None:
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()
-            cursor.execute("select username, stream_token from users")
+            cursor.execute("select id, username, stream_token, display_name from users")
             self.users = [
-                User(username, stream_token)
-                for username, stream_token in cursor.fetchall()
+                User(user_id, username, display_name, stream_token)
+                for user_id, username, stream_token, display_name in cursor.fetchall()
             ]
 
-    def add(self, username: str, password: str) -> None:
+    def add(self, username: str, display_name: str | None, password: str) -> int:
         salt = generate_secure_random_string()
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
-            db.cursor().execute(
-                "insert into users (username, stream_token, password_hash, salt, colour) values (?, ?, ?, ?, ?)",
+            cursor = db.cursor()
+            cursor.execute(
+                "insert into users (username, display_name, stream_token, password_hash, salt, colour) values (?, ?, ?, ?, ?, ?) returning id",
                 (
                     username,
+                    display_name,
                     generate_secure_random_string(),
                     sha256((password + salt).encode()).digest(),
                     salt,
                     1,
                 ),
             )
+            user_id, = cursor.fetchone()
         self.reload()
+        return user_id
 
+    def avatar(self, user: User) -> bytes | None:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select avatar from users where id = ?",
+                (user.id,),
+            )
+            avatar, = cursor.fetchone()
+        return avatar
 
 def create_app():
     load_dotenv()
 
     app = quart.Quart(__name__, static_folder="../../../frontend/build")
-    cors(app, allow_origin="*")
+    cors(app, allow_origin="http://localhost:5001", allow_credentials=True)
     users = Users()
 
     emotes: dict[str, str] = {
@@ -122,21 +142,20 @@ def create_app():
 
     api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
 
-    @app.route("/<string:username>/js/index")
-    async def index_js(username: str):
-        return await quart.render_template("js/index.js", username=username)
-
-    @app.route("/")
-    async def root():
-        return quart.redirect(f"/{users.choice().username}")
-
+    @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     async def static_files(path: str):
-        if not app.static_folder:
-            return abort(500)
-        if exists(join(app.static_folder, path)):
-            return await quart.send_from_directory(app.static_folder, path)  # type: ignore
-        return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
+        # if not app.static_folder:
+        #     return abort(500)
+        # if exists(join(app.static_folder, path)):
+        #     return await quart.send_from_directory(app.static_folder, path)  # type: ignore
+        # return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
+        response = requests.get(f"http://localhost:5173/{path}")
+        return quart.Response(
+            response.content,
+            response.status_code,
+            dict(response.headers.items()),
+        )
 
     @api.route("/random", methods=["GET"])
     async def random():
@@ -386,11 +405,36 @@ def create_app():
             return quart.Response("Ensure passwords match.", status=BAD_REQUEST)
         if not users.available(username):
             return quart.Response(f"'{username}' is not available.", status=CONFLICT)
-        users.add(username, password)
-        session = Session()
+        user_id = users.add(username, None, password)
+        session = Session(user_id)
         response = quart.Response(status=CREATED)
         response.set_cookie("session_token", session.token, max_age=86400, secure=True, samesite="Lax")
         return response
+
+    @api.route("/auth/user", methods=["GET"])
+    async def user():
+        token = request.cookies.get("session_token")
+        if not token:
+            return abort(UNAUTHORIZED)
+        session = Session.validate_token(token)
+        if not session:
+            return abort(UNAUTHORIZED)
+        user = users.find_by_id(session.user)
+        if not user:
+            return abort(GONE)
+        return quart.jsonify({
+            "username": user.username,
+            "displayName": user.display_name,
+            "colour": user.colour,
+            "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}",
+        })
+
+    @api.route("/avatar/<string:username>", methods=["GET"])
+    async def avatar(username: str):
+        user = users.find_by_username(username)
+        if not user:
+            return abort(404)
+        return quart.Response(users.avatar(user))
 
     api.register_blueprint(stream)
     app.register_blueprint(api)
@@ -398,16 +442,17 @@ def create_app():
 
 
 class Session:
-    def __init__(self) -> None:
+    def __init__(self, user_id: int) -> None:
         self.id = generate_secure_random_string()
         secret = generate_secure_random_string()
         self.secret_hash = sha256(secret.encode()).digest()
         self.created_at = datetime.now()
         self.token = f"{self.id}.{secret}"
+        self.user = user_id
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             db.cursor().execute(
-                "insert into sessions (id, secret_hash, created_at) values (?, ?, ?)",
-                (self.id, self.secret_hash, floor(self.created_at.timestamp())),
+                "insert into sessions (id, secret_hash, created_at, user) values (?, ?, ?, ?)",
+                (self.id, self.secret_hash, floor(self.created_at.timestamp()), self.user),
             )
 
     @staticmethod
@@ -429,10 +474,10 @@ class Session:
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()
             cursor.execute(
-                "select id, secret_hash, created_at from sessions where id = ?",
+                "select id, secret_hash, created_at, user from sessions where id = ?",
                 (session_id,),
             )
-            session_id, secret_hash, created_at = cursor.fetchone()
+            session_id, secret_hash, created_at, user = cursor.fetchone()
         created_at = datetime.fromtimestamp(created_at)
         if (datetime.now() - created_at).total_seconds() > 60 * 60 * 24:
             Session.delete(session_id)
@@ -441,6 +486,7 @@ class Session:
         session.id = session_id
         session.secret_hash = secret_hash
         session.created_at = created_at
+        session.user = user
         return session
 
     @staticmethod
