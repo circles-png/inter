@@ -21,12 +21,18 @@
     SidebarHeader,
     SidebarGroupLabel,
     SidebarGroupContent,
+    SidebarRail,
+    SidebarMenuItem,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuAction,
   } from "$lib/components/ui/sidebar"
   import { Skeleton } from "$lib/components/ui/skeleton"
   import context from "$lib/context.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
   import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
+  import Ellipsis from "@lucide/svelte/icons/ellipsis"
 
   const { children } = $props()
   let sidebarOpen = $state(false)
@@ -49,7 +55,7 @@
 </script>
 
 <SidebarProvider class="flex grow" bind:open={sidebarOpen}>
-  <Sidebar collapsible="icon">
+  <Sidebar collapsible="icon" variant="floating">
     <SidebarHeader class="overflow-hidden">
       <div class="flex gap-4 items-center">
         <Logo class="shrink-0" />
@@ -73,7 +79,7 @@
               <ItemContent class="gap-0">
                 <ItemTitle>{user.displayName ?? user.username}</ItemTitle>
                 {#if user.displayName}
-                  <ItemDescription>{user.username}</ItemDescription>
+                  <ItemDescription>@{user.username}</ItemDescription>
                 {/if}
               </ItemContent>
               <ItemActions>
@@ -88,8 +94,24 @@
     </SidebarHeader>
     <SidebarContent class="overflow-hidden">
       <SidebarGroup>
-        <SidebarGroupLabel>label</SidebarGroupLabel>
-        <SidebarGroupContent>c</SidebarGroupContent>
+        <SidebarGroupLabel>Following</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg">
+                <Avatar class="*:rounded-lg size-8">
+                  <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
+                </Avatar>
+                Streamer
+              </SidebarMenuButton>
+              <SidebarMenuAction>
+                <Button variant="ghost" size="icon-sm">
+                  <Ellipsis />
+                </Button>
+              </SidebarMenuAction>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
     <SidebarFooter class="overflow-hidden">
@@ -117,6 +139,7 @@
         {/await}
       </div>
     </SidebarFooter>
+    <SidebarRail />
   </Sidebar>
   {@render children()}
 </SidebarProvider>
