@@ -1,26 +1,136 @@
-<script>
+<script lang="ts">
+  import { page } from "$app/state"
   import Button from "$lib/components/ui/button/button.svelte"
-  import Input from "$lib/components/ui/input/input.svelte"
-  import Label from "$lib/components/ui/label/label.svelte"
+  import { getApiEndpoint } from "$lib/utils.svelte"
   import "../../app.css"
+  import FieldGroup from "$lib/components/field-group.svelte"
+  import { Spinner } from "$lib/components/ui/spinner"
+
+  let username = $state("")
+  let password = $state("")
+  let reenter = $state("")
+
+  function debounce<A extends any[]>(f: (...args: A) => unknown, ms: number) {
+    let timeout: number | null = null
+    return (...args: A) => {
+      if (timeout !== null) {
+        window.clearTimeout(timeout)
+      }
+      timeout = window.setTimeout(() => f(...args), ms)
+    }
+  }
+
+  function debounced<T>(get: () => T, ms: number) {
+    let state = $state(get())
+    const update = debounce((value) => {
+      state = value
+    }, ms)
+    $effect(() => update(get()))
+    return () => state
+  }
+
+  let debouncedUsername = debounced(() => username, 300)
+  let usernameError = $derived.by(async () => {
+    const username = debouncedUsername()
+    if (!/^[a-z0-9_]*$/.test(username)) {
+      return "Choose a username with only lowercase letters, numbers, and underscores."
+    }
+    if (username.length < 4) {
+      return "Choose a username with at least 4 characters."
+    }
+    if (username.length > 32) {
+      return "Choose a username with at most 32 characters."
+    }
+    const response = await fetch(
+      getApiEndpoint(page.url.hostname, "http", `auth/available/${encodeURIComponent(username)}`),
+      { method: "GET" },
+    )
+    if (response.status === 409) {
+      return "Username is already taken."
+    }
+    return null
+  })
+  let validPassword = $derived(password.length >= 8)
+  let passwordsMatch = $derived(password === reenter)
+  let submit: Promise<void> | null = $state(null)
 </script>
 
-<div class="flex justify-center items-center grow">
-  <div class="flex flex-col max-w-xl w-full p-4 border rounded-2xl">
-    <div class="flex justify-end">
-      <Button href="/login" variant="ghost">Log in</Button>
-    </div>
-    <div class="flex justify-center items-center grow py-64">
-      <div class="flex flex-col w-full max-w-sm gap-6">
-        <h1 class="text-2xl font-semibold text-center">Create an account</h1>
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-col gap-2">
-            <Label for="username">Username</Label>
-            <Input id="username" />
-          </div>
-          <Button>Continue</Button>
-        </div>
+<div class="flex flex-col grow p-4">
+  <div class="flex justify-end">
+    <Button href="/login" variant="ghost">Log in</Button>
+  </div>
+  <div class="flex justify-center items-center grow">
+    <form
+      class="flex flex-col w-full max-w-sm gap-6"
+      onsubmit={(event) => {
+        event.preventDefault()
+        submit = fetch(getApiEndpoint(page.url.hostname, "http", "auth/signup"), {
+          method: "POST",
+          body: JSON.stringify({ username, password, reenter }),
+          headers: { "Content-Type": "application/json" },
+        }).then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text()
+            return Promise.reject(text)
+          }
+          location.replace("/")
+          return Promise.resolve()
+        })
+      }}
+    >
+      <h1 class="text-2xl font-semibold text-center">Create an account</h1>
+      <div class="flex flex-col gap-4">
+        <FieldGroup
+          id="username"
+          label="Username"
+          bind:value={username}
+          error={usernameError}
+          good="Username looks good!"
+        />
+        <FieldGroup
+          id="password"
+          label="Password"
+          bind:value={password}
+          type="password"
+          error={!validPassword ? "Password must be at least 8 characters long" : null}
+          good="Password looks good!"
+        />
+        <FieldGroup
+          id="reenter"
+          label="Re-enter password"
+          bind:value={reenter}
+          type="password"
+          error={!passwordsMatch ? "Passwords do not match" : null}
+          good="Passwords match!"
+        />
+        {#if submit}
+          {#await submit}
+            <Button type="submit" disabled variant="secondary">
+              <Spinner />
+              Processing
+            </Button>
+          {:then response}
+            <Button type="submit" disabled variant="secondary">
+              <Spinner />
+              Redirecting
+            </Button>
+          {:catch error}
+            {@render submitButton()}
+            {error}
+          {/await}
+        {:else}
+          {@render submitButton()}
+        {/if}
       </div>
-    </div>
+    </form>
   </div>
 </div>
+
+{#snippet submitButton()}
+  <Button
+    type="submit"
+    disabled={!username || !password || !!usernameError || !validPassword || !passwordsMatch}
+  >
+    Continue
+  </Button>
+{/snippet}

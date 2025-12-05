@@ -4,6 +4,7 @@
 	"objectWrap": "collapse",
 	"printWidth": 100,
 	"semi": false,
+	"experimentalOperatorPosition": "start",
 	"plugins": [
 		"prettier-plugin-svelte"
 	],

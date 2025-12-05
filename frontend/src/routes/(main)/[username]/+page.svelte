@@ -5,13 +5,13 @@
   import { ResizablePane } from "$lib/components/ui/resizable"
   import ResizableHandle from "$lib/components/ui/resizable/resizable-handle.svelte"
   import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte"
-  import { getStreamEndpoint } from "$lib/utils.svelte"
-  import type { Emote } from "../../models/emote"
-  import type { Message } from "../../models/message"
-  import type { User } from "../../models/user"
-  import Chat from "../../stories/Chat.svelte"
-  import Details from "../../stories/Details.svelte"
-  import Header from "../../stories/Header.svelte"
+  import { getApiEndpoint } from "$lib/utils.svelte"
+  import type { Emote } from "../../../models/emote"
+  import type { Message } from "../../../models/message"
+  import type { User } from "../../../models/user"
+  import Chat from "../../../stories/Chat.svelte"
+  import Details from "../../../stories/Details.svelte"
+  import Header from "../../../stories/Header.svelte"
 
   let user = $state<User>()
   let content = $state({
@@ -68,7 +68,7 @@
         let offer = await connection.createOffer()
         connection.setLocalDescription(offer)
         let response = await fetch(
-          getStreamEndpoint(page.url.hostname, "http", `stream/${username}/rx`),
+          getApiEndpoint(page.url.hostname, "http", `stream/${username}/rx`),
           { method: "POST", headers: { "Content-Type": "application/sdp" }, body: offer.sdp },
         )
         let answer = await response.text()
@@ -77,7 +77,7 @@
         )
       }
 
-      const ws = new WebSocket(getStreamEndpoint(page.url.hostname, "ws", `stream/${username}/ws`))
+      const ws = new WebSocket(getApiEndpoint(page.url.hostname, "ws", `stream/${username}/ws`))
       await new Promise((resolve) => {
         ws.onopen = resolve
       })

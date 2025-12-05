@@ -1,8 +1,9 @@
+# pyright: reportUnusedFunction=none
 from asyncio import Queue, ensure_future, gather
 from datetime import datetime
 from functools import reduce
 from hashlib import sha256
-from http.client import CREATED, OK
+from http.client import BAD_REQUEST, CONFLICT, CREATED, OK
 import json
 from math import floor
 from os import environ
@@ -10,7 +11,7 @@ from os.path import exists, join
 from random import choice
 import secrets
 import sqlite3
-from typing import Callable
+from typing import Callable, Literal, TypedDict
 from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
@@ -26,7 +27,7 @@ import aiortc.contrib.media
 from dotenv import load_dotenv
 import quart
 from quart import abort, request, websocket
-from quart_cors import cors
+from quart_cors import cors  # type: ignore
 import requests
 
 
@@ -58,13 +59,7 @@ class User:
 
 class Users:
     def __init__(self) -> None:
-        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
-            cursor = db.cursor()
-            cursor.execute("select username, stream_token from users")
-            self.users: list[User] = [
-                User(username, stream_token)
-                for username, stream_token in cursor.fetchall()
-            ]
+        self.reload()
 
     def find_by_token(self, token: str) -> User | None:
         return self.find(lambda user: user.stream_token == token)
@@ -77,6 +72,33 @@ class Users:
 
     def choice(self) -> User:
         return choice(self.users)
+
+    def available(self, username: str) -> bool:
+        return self.find_by_username(username) is None
+
+    def reload(self) -> None:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute("select username, stream_token from users")
+            self.users = [
+                User(username, stream_token)
+                for username, stream_token in cursor.fetchall()
+            ]
+
+    def add(self, username: str, password: str) -> None:
+        salt = generate_secure_random_string()
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "insert into users (username, stream_token, password_hash, salt, colour) values (?, ?, ?, ?, ?)",
+                (
+                    username,
+                    generate_secure_random_string(),
+                    sha256((password + salt).encode()).digest(),
+                    salt,
+                    1,
+                ),
+            )
+        self.reload()
 
 
 def create_app():
@@ -105,14 +127,16 @@ def create_app():
         return await quart.render_template("js/index.js", username=username)
 
     @app.route("/")
-    async def random():
+    async def root():
         return quart.redirect(f"/{users.choice().username}")
 
     @app.route("/<path:path>")
-    async def watch(path: str):
+    async def static_files(path: str):
+        if not app.static_folder:
+            return abort(500)
         if exists(join(app.static_folder, path)):
-            return await quart.send_from_directory(app.static_folder, path)
-        return await quart.send_file(join(app.static_folder, "index.html"))
+            return await quart.send_from_directory(app.static_folder, path)  # type: ignore
+        return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
 
     @api.route("/random", methods=["GET"])
     async def random():
@@ -136,37 +160,37 @@ def create_app():
         user.stream = stream
 
         @stream.connection.on("connectionstatechange")
-        async def on_connectionstatechange():
+        async def _():
             print(f"tx connectionstatechange", stream.connection.connectionState)
             for queue in stream.client_ws_queues:
                 await queue.put({"type": "stream_started"})
 
         @stream.connection.on("datachannel")
-        def on_datachannel():
+        def _():
             print(f"tx datachannel")
 
         @stream.connection.on("icecandidate")
-        def on_icecandidate(candidate: RTCIceCandidate):
+        def _(candidate: RTCIceCandidate):
             print(f"tx icecandidate", candidate)
 
         @stream.connection.on("icecandidateerror")
-        def on_icecandidateerror():
+        def _():
             print(f"tx icecandidateerror")
 
         @stream.connection.on("iceconnectionstatechange")
-        def on_iceconnectionstatechange():
+        def _():
             print(f"tx iceconnectionstatechange", stream.connection.iceConnectionState)
 
         @stream.connection.on("negotiationneeded")
-        def on_negotiationneeded():
+        def _():
             print(f"tx negotiationneeded")
 
         @stream.connection.on("signalingstatechange")
-        def on_signalingstatechange():
+        def _():
             print(f"tx signalingstatechange", stream.connection.signalingState)
 
         @stream.connection.on("track")
-        def on_track(t: MediaStreamTrack):
+        def _(t: MediaStreamTrack):
             print(f"tx track")
             stream.tracks.append(t)
 
@@ -189,7 +213,7 @@ def create_app():
         if not user:
             return await websocket.close(code=4004)
         stream = user.stream
-        queue = Queue(maxsize=10)
+        queue: Queue[dict[str, str]] = Queue(maxsize=10)
         if stream:
             stream.client_ws_queues.append(queue)
 
@@ -225,7 +249,7 @@ def create_app():
         return quart.Response(status=OK)
 
     @stream.route("/<string:username>/rx", methods=["POST", "PATCH"])
-    async def stream_rx(username: str):
+    async def _(username: str):
         user = users.find_by_username(username)
         if not user:
             return abort(404)
@@ -239,7 +263,7 @@ def create_app():
         )
 
         @client.connection.on("connectionstatechange")
-        async def on_connectionstatechange():
+        async def _():
             print(f"connectionstatechange", client.connection.connectionState)
             if client.connection.connectionState == "closed":
                 await client.connection.close()
@@ -248,7 +272,7 @@ def create_app():
                 stream.clients.remove(client)
 
         @client.connection.on("datachannel")
-        def on_datachannel(channel: RTCDataChannel):
+        def _(channel: RTCDataChannel):
             print(f"datachannel", channel)
             client.chat = channel
             channel.send(
@@ -263,20 +287,22 @@ def create_app():
             )
 
             @channel.on("message")
-            def on_message(data: str):
+            def _(data: str):
                 print("message", data)
-                message = reduce(
-                    lambda message, part: (
-                        message
-                        + [
-                            {
-                                "type": "emote",
-                                "url": emotes.get(part),
-                                "name": part,
-                            }
+
+                def combine(message: list[Fragment], part: str) -> list[Fragment]:
+                    emote = emotes.get(part)
+                    if emote:
+                        fragment: EmoteFragment = {
+                            "type": "emote",
+                            "url": emote,
+                            "name": part,
+                        }
+                        return message + [
+                            fragment,
                         ]
-                        if emotes.get(part)
-                        else (
+                    else:
+                        return (
                             message[:-1]
                             + [
                                 {
@@ -285,13 +311,10 @@ def create_app():
                                 }
                             ]
                             if message[-1]["type"] == "text"
-                            else message
-                            + [{"type": "text", "text": part + " "}]
+                            else message + [{"type": "text", "text": part + " "}]
                         )
-                    ),
-                    data.split(" "),
-                    [],
-                )
+
+                message = reduce(combine, data.split(" "), [])
                 for client in stream.clients:
                     if client.chat:
                         client.chat.send(
@@ -305,27 +328,27 @@ def create_app():
                         )
 
         @client.connection.on("icecandidate")
-        def on_icecandidate(candidate: RTCIceCandidate):
+        def _(candidate: RTCIceCandidate):
             print(f"icecandidate", candidate)
 
         @client.connection.on("icecandidateerror")
-        def on_icecandidateerror():
+        def _():
             print(f"icecandidateerror")
 
         @client.connection.on("iceconnectionstatechange")
-        def on_iceconnectionstatechange():
+        def _():
             print(f"iceconnectionstatechange", client.connection.iceConnectionState)
 
         @client.connection.on("negotiationneeded")
-        def on_negotiationneeded():
+        def _():
             print(f"negotiationneeded")
 
         @client.connection.on("signalingstatechange")
-        def on_signalingstatechange():
+        def _():
             print(f"signalingstatechange", client.connection.signalingState)
 
         @client.connection.on("track")
-        def on_track(track: MediaStreamTrack):
+        def _(track: MediaStreamTrack):
             print(f"track")
 
         stream.clients.append(client)
@@ -344,27 +367,29 @@ def create_app():
             content_type="application/sdp",
         )
 
+    @api.route("/auth/available/<string:username>", methods=["GET"])
+    async def available(username: str):
+        if users.available(username):
+            return quart.Response(status=OK)
+        else:
+            return quart.Response(status=CONFLICT)
+
     @api.route("/auth/signup", methods=["POST"])
-    async def auth_signup():
+    async def signup():
         data = await request.get_json()
-        username = data.get("username")
-        password = data.get("password")
-        if not username or not password:
-            return abort(400)
-        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
-            db.cursor().execute(
-                "insert into users (username, stream_token, password_hash) values (?, ?, ?)",
-                (
-                    username,
-                    generate_secure_random_string(),
-                    sha256(password.encode()).digest(),
-                ),
-            )
+        username: str = data.get("username")
+        password: str = data.get("password")
+        reenter: str = data.get("reenter")
+        if not username or not password or not reenter:
+            return quart.Response("Enter a username and password.", status=BAD_REQUEST)
+        if password != reenter:
+            return quart.Response("Ensure passwords match.", status=BAD_REQUEST)
+        if not users.available(username):
+            return quart.Response(f"'{username}' is not available.", status=CONFLICT)
+        users.add(username, password)
         session = Session()
-        response = quart.redirect("/")
-        response.headers["Set-Cookie"] = (
-            f"session_token={session.token}; Max-Age=86400; HttpOnly; Secure; Path=/; SameSite=Lax"
-        )
+        response = quart.Response(status=CREATED)
+        response.set_cookie("session_token", session.token, max_age=86400, secure=True, samesite="Lax")
         return response
 
     api.register_blueprint(stream)
@@ -429,3 +454,23 @@ class Session:
 
 def generate_secure_random_string() -> str:
     return secrets.token_urlsafe(32)
+
+
+class TextFragment(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class EmoteFragment(TypedDict):
+    type: Literal["emote"]
+    url: str
+    name: str
+
+
+class Message(TypedDict):
+    time: str
+    message: list["Fragment"]
+    user: "User"
+
+
+type Fragment = TextFragment | EmoteFragment
