@@ -5,6 +5,7 @@
   import Field, { submitButton } from "../common.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
+  import { goto } from "$app/navigation"
 
   let username = $state("")
   let password = $state("")
@@ -73,10 +74,10 @@
         }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
-            toast.error("Error while signing up", {description: text})
+            toast.error("Error while signing up", { description: text })
             return Promise.reject(text)
           }
-          location.replace("/")
+          goto("/")
           return Promise.resolve()
         })
       }}
