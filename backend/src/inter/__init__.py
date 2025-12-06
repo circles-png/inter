@@ -29,8 +29,6 @@ def create_app():
                 return await quart.send_from_directory(app.static_folder, path)  # type: ignore
             return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
         else:
-            if path.startswith("src"):
-                return quart.redirect(f"http://localhost:5173/{path}")
             response = requests.get(f"http://localhost:5173/{path}")
             return quart.Response(
                 response.content,

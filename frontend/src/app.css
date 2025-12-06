@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @plugin '@tailwindcss/forms';
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
   --radius: 0.625rem;
   --background: oklch(0.141 0.005 285.823);
@@ -80,7 +78,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+
+    scrollbar-color: var(--muted) transparent;
+    scrollbar-gutter: both-edges;
   }
+
   body {
     @apply bg-background text-foreground;
   }

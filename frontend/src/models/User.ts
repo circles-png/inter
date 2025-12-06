@@ -1,6 +1,6 @@
 export type User = {
   username: string;
-  displayName: string | null;
+  displayName: string;
   avatar: string;
   colour: number;
   roles: string[];

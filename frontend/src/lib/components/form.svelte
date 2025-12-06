@@ -9,54 +9,66 @@
   import { Input } from "$lib/components/ui/input"
   import { Spinner } from "$lib/components/ui/spinner"
   import { Button } from "$lib/components/ui/button"
+  import { debounced } from "$lib/utils.svelte"
+  import type { FullAutoFill } from "svelte/elements"
 
   let {
     id,
     label,
     value = $bindable(),
     type = "text",
-    error: errorPromise,
+    debounce = 0,
+    validate,
     invalid = $bindable(false),
     good,
     description,
+    validating,
+    autocomplete,
   }: {
     id: string
     label: string
     value: string
     type?: string
-    error?: (string | null) | Promise<string | null>
+    debounce?: number
+    validate?: (value: string) => Promise<string | null | undefined>
     invalid?: boolean
     good?: string
     description?: string
+    validating?: string
+    autocomplete?: FullAutoFill
   } = $props()
-  const error = $derived(
-    errorPromise !== undefined
-      ? errorPromise instanceof Promise
-        ? errorPromise
-        : Promise.resolve(errorPromise)
-      : Promise.resolve(null),
-  )
+  const debouncedValue = debounced(() => value, debounce)
+  const error = $derived(validate?.(debouncedValue()) || Promise.resolve(undefined))
+  let unchanged = $state(true)
   $effect(() => {
-    invalid = !!value
-    error.then((error) => (invalid = !!value && !!error))
+    error.then((error) => {
+      invalid = !!value && !!error
+      unchanged = error === undefined
+    })
   })
 </script>
 
-{#snippet submitButton(submit: Promise<void> | null, disabled: boolean)}
+{#snippet submitButton(
+  submit: Promise<void> | null,
+  disabled: boolean,
+  next: string = "Continue",
+  waiting: string = "Processing",
+  done: string = "Redirecting",
+)}
   {#snippet submitButtonInner(disabled: boolean)}
-    <Button type="submit" {disabled}>Continue</Button>
+    <Button type="submit" {disabled}>{next}</Button>
   {/snippet}
 
   {#if submit}
     {#await submit}
       <Button type="submit" disabled variant="secondary">
         <Spinner />
-        Processing
+        {waiting}
       </Button>
     {:then}
       <Button type="submit" disabled variant="secondary">
         <Spinner />
-        Redirecting
+        {done}
       </Button>
     {:catch}
       {@render submitButtonInner(disabled)}
@@ -68,12 +80,12 @@
 
 <Field data-invalid={invalid}>
   <FieldLabel for={id}>{label}</FieldLabel>
-  <Input {id} bind:value aria-invalid={invalid} {type} name={id} />
-  {#if value && errorPromise !== undefined}
+  <Input {id} bind:value aria-invalid={invalid} {type} name={id} {autocomplete} />
+  {#if value && error !== undefined && !unchanged}
     {#await error}
       <p class="text-sm text-muted-foreground flex gap-1">
         <Spinner />
-        Checking username availability
+        {validating}
       </p>
     {:then error}
       <FieldError>
@@ -86,7 +98,7 @@
   {/if}
 </Field>
 
-{#snippet errorDisplay(error: string | null)}
+{#snippet errorDisplay(error: string | null | undefined)}
   {#if error}
     <p class="text-sm text-destructive flex gap-1">
       <X class="size-5" />

@@ -4,3 +4,5 @@ cert
 .env
 target
 db/database.db
+.pytest_cache
+.hypothesis

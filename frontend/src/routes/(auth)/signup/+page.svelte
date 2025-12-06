@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state"
   import Button from "$lib/components/ui/button/button.svelte"
-  import { getApiEndpoint } from "$lib/utils.svelte"
-  import Field, { submitButton } from "../common.svelte"
+  import { getApiEndpoint, validateUsername } from "$lib/utils.svelte"
+  import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
@@ -11,49 +11,9 @@
   let password = $state("")
   let reenter = $state("")
 
-  function debounce<A extends any[]>(f: (...args: A) => unknown, ms: number) {
-    let timeout: number | null = null
-    return (...args: A) => {
-      if (timeout !== null) {
-        window.clearTimeout(timeout)
-      }
-      timeout = window.setTimeout(() => f(...args), ms)
-    }
-  }
-
-  function debounced<T>(get: () => T, ms: number) {
-    let state = $state(get())
-    const update = debounce((value) => {
-      state = value
-    }, ms)
-    $effect(() => update(get()))
-    return () => state
-  }
-
-  let debouncedUsername = debounced(() => username, 300)
-  let usernameError = $derived.by(async () => {
-    const username = debouncedUsername()
-    if (!/^[a-z0-9_]*$/.test(username)) {
-      return "Choose a username with only lowercase letters, numbers, and underscores."
-    }
-    if (username.length < 4) {
-      return "Choose a username with at least 4 characters."
-    }
-    if (username.length > 32) {
-      return "Choose a username with at most 32 characters."
-    }
-    const response = await fetch(
-      getApiEndpoint(page.url.hostname, "http", `auth/available/${encodeURIComponent(username)}`),
-      { method: "GET" },
-    )
-    if (response.status === 409) {
-      return "Username is already taken."
-    }
-    return null
-  })
   let invalidUsername = $state(false)
-  let validPassword = $derived(password.length >= 8)
-  let passwordsMatch = $derived(password === reenter)
+  let invalidPassword = $state(false)
+  let invalidReenter = $state(false)
   let submit: Promise<void> | null = $state(null)
 </script>
 
@@ -66,7 +26,7 @@
       class="flex flex-col w-full max-w-sm gap-6"
       onsubmit={(event) => {
         event.preventDefault()
-        submit = fetch(getApiEndpoint(page.url.hostname, "http", "auth/signup"), {
+        submit = fetch(getApiEndpoint("http", "auth/signup"), {
           method: "POST",
           body: JSON.stringify({ username, password, reenter }),
           headers: { "Content-Type": "application/json" },
@@ -77,7 +37,7 @@
             toast.error("Error while signing up", { description: text })
             return Promise.reject(text)
           }
-          goto("/")
+          await goto("/")
           return Promise.resolve()
         })
       }}
@@ -89,30 +49,39 @@
             id="username"
             label="Username"
             bind:value={username}
-            error={usernameError}
+            debounce={300}
+            validate={validateUsername}
             bind:invalid={invalidUsername}
             good="Username looks good!"
             description="Your unique user handle."
+            validating="Checking username availability"
+            autocomplete="username webauthn"
           />
           <Field
             id="password"
             label="Password"
             bind:value={password}
             type="password"
-            error={!validPassword ? "Password must be at least 8 characters long" : null}
+            validate={async (password: string) =>
+              password.length >= 8 ? null : "Password must be at least 8 characters long"}
+            bind:invalid={invalidPassword}
             good="Password looks good!"
+            autocomplete="new-password webauthn"
           />
           <Field
             id="reenter"
             label="Re-enter password"
             bind:value={reenter}
             type="password"
-            error={!passwordsMatch ? "Passwords do not match" : null}
+            validate={async (reenter: string) =>
+              reenter === password ? null : "Ensure this matches your password above."}
+            bind:invalid={invalidReenter}
             good="Passwords match!"
+            autocomplete="new-password webauthn"
           />
           {@render submitButton(
             submit,
-            !username || !password || !!invalidUsername || !validPassword || !passwordsMatch,
+            !username || !password || invalidUsername || invalidPassword || invalidReenter,
           )}
         </FieldGroup>
       </FieldSet>

@@ -18,7 +18,7 @@ import quart
 from inter.models.client import Client
 from inter.models.message import EmoteFragment, Fragment
 from inter.models.stream import Stream
-from inter.common import users, emotes
+from inter.common import emotes, users
 
 stream = quart.Blueprint("stream", __name__, url_prefix="/stream/")
 

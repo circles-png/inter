@@ -2,7 +2,7 @@
   import { page } from "$app/state"
   import Button from "$lib/components/ui/button/button.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
-  import Field, { submitButton } from "../common.svelte"
+  import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
@@ -20,7 +20,7 @@
       class="flex flex-col w-full max-w-sm gap-6"
       onsubmit={(event) => {
         event.preventDefault()
-        submit = fetch(getApiEndpoint(page.url.hostname, "http", "auth/login"), {
+        submit = fetch(getApiEndpoint("http", "auth/login"), {
           method: "POST",
           body: JSON.stringify({ username, password }),
           headers: { "Content-Type": "application/json" },
@@ -31,7 +31,7 @@
             toast.error("Error while logging in", { description: text })
             return Promise.reject(text)
           }
-          goto("/")
+          await goto("/")
           return Promise.resolve()
         })
       }}
@@ -39,8 +39,19 @@
       <FieldSet>
         <h1 class="text-2xl font-semibold text-center">Log in to your existing account</h1>
         <FieldGroup>
-          <Field id="username" label="Username" bind:value={username} />
-          <Field id="password" label="Password" bind:value={password} type="password" />
+          <Field
+            id="username"
+            label="Username"
+            bind:value={username}
+            autocomplete="username webauthn"
+          />
+          <Field
+            id="password"
+            label="Password"
+            bind:value={password}
+            type="password"
+            autocomplete="current-password webauthn"
+          />
           {@render submitButton(submit, !username || !password)}
         </FieldGroup>
       </FieldSet>

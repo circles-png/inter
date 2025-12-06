@@ -65,7 +65,7 @@
         let offer = await connection.createOffer()
         connection.setLocalDescription(offer)
         let response = await fetch(
-          getApiEndpoint(page.url.hostname, "http", `stream/${username}/rx`),
+          getApiEndpoint("http", `stream/${username}/rx`),
           { method: "POST", headers: { "Content-Type": "application/sdp" }, body: offer.sdp },
         )
         let answer = await response.text()
@@ -74,7 +74,7 @@
         )
       }
 
-      const ws = new WebSocket(getApiEndpoint(page.url.hostname, "ws", `stream/${username}/ws`))
+      const ws = new WebSocket(getApiEndpoint("ws", `stream/${username}/ws`))
       await new Promise((resolve) => {
         ws.onopen = resolve
       })

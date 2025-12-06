@@ -1,11 +1,12 @@
 from hashlib import sha256
-from http.client import BAD_REQUEST, CONFLICT, CREATED, GONE, OK, UNAUTHORIZED
+from http.client import BAD_REQUEST, CONFLICT, CREATED, OK, UNAUTHORIZED
 from os import environ
 import sqlite3
 import quart
-from quart import request, abort
-from inter.common import users
+from quart import request
 from inter.models.session import Session
+from inter.models.user import User
+from inter.common import users
 
 auth = quart.Blueprint("auth", __name__, url_prefix="/auth/")
 
@@ -30,7 +31,7 @@ async def signup():
         return quart.Response("Ensure passwords match.", status=BAD_REQUEST)
     if not users.available(username):
         return quart.Response(f"'{username}' is not available.", status=CONFLICT)
-    user_id = users.add(username, None, password)
+    user_id = users.add(username, "", password)
     session = Session(user_id)
     response = quart.Response(status=CREATED)
     response.set_cookie(
@@ -41,15 +42,7 @@ async def signup():
 
 @auth.route("/user", methods=["GET"])
 async def user():
-    token = request.cookies.get("session_token")
-    if not token:
-        return abort(UNAUTHORIZED)
-    session = Session.validate_token(token)
-    if not session:
-        return abort(UNAUTHORIZED)
-    user = users.find_by_id(session.user)
-    if not user:
-        return abort(GONE)
+    user = User.from_session()
     return quart.jsonify(
         {
             "username": user.username,
@@ -63,8 +56,8 @@ async def user():
 @auth.route("/login", methods=["POST"])
 async def login():
     data = await request.get_json()
-    username: str = data.get("username")
-    password: str = data.get("password")
+    username = data.get("username")
+    password = data.get("password")
     if not username or not password:
         return quart.Response("Enter a username and password.", status=BAD_REQUEST)
     user = users.find_by_username(username)
@@ -85,3 +78,20 @@ async def login():
         "session_token", session.token, max_age=86400, secure=True, samesite="Lax"
     )
     return response
+
+
+@auth.route("/update", methods=["POST"])
+async def update():
+    user = User.from_session()
+    data = await request.get_json()
+    username = data.get("username")
+    if username and username != user.username:
+        if not users.available(username):
+            return quart.Response(f"'{username}' is not available.", status=CONFLICT)
+        user.username = username
+
+    display_name = data.get("displayName")
+    if display_name is not None and display_name != user.display_name:
+        user.display_name = display_name
+
+    return quart.Response(status=OK)
