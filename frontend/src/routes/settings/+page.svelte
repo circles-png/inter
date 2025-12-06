@@ -38,7 +38,8 @@
     DropdownMenuItem,
     DropdownMenuTrigger,
   } from "$lib/components/ui/dropdown-menu"
-    import { userContext } from "$lib/context.svelte"
+  import { userContext } from "$lib/context.svelte"
+  import UserItem from "$lib/components/UserItem.svelte"
 
   let tab = $state("profile")
 </script>
@@ -69,53 +70,29 @@
     </SidebarContent>
     <SidebarFooter>
       <div class="flex items-center gap-4">
-        {#await userContext.user}
-          <div class="flex gap-2 items-center">
-            <Skeleton class="size-8" />
-            <div class="flex flex-col gap-1">
-              <Skeleton class="w-20 h-3" />
-              <Skeleton class="w-15 h-3" />
-            </div>
-          </div>
-        {:then user}
-          {#if user}
-            <Item size="xs" class="flex-nowrap grow">
-              <ItemMedia>
-                <Avatar class="*:rounded-lg size-8">
-                  <AvatarImage src={user.avatar} alt="User avatar" />
-                  <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
-                </Avatar>
-              </ItemMedia>
-              <ItemContent class="gap-0">
-                <ItemTitle>{user.displayName || user.username}</ItemTitle>
-                {#if user.displayName}
-                  <ItemDescription>@{user.username}</ItemDescription>
-                {/if}
-              </ItemContent>
-              <ItemActions>
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    <Button variant="secondary" size="icon-sm">
-                      <LogOut />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="top" align="end">
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onclick={() => {
-                          cookieStore.delete("session_token")
-                          userContext.user = Promise.resolve(null)
-                        }}
-                      >
-                        Log out
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ItemActions>
-            </Item>
-          {/if}
-        {/await}
+        <UserItem>
+          <ItemActions>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Button variant="secondary" size="icon-sm">
+                  <LogOut />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onclick={() => {
+                      cookieStore.delete("session_token")
+                      userContext.user = Promise.resolve(null)
+                    }}
+                  >
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ItemActions>
+        </UserItem>
       </div>
     </SidebarFooter>
     <SidebarRail />

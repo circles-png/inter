@@ -1,4 +1,6 @@
 <script lang="ts">
+  import UserItem from "../../lib/components/UserItem.svelte"
+
   import Logo from "$lib/components/logo.svelte"
   import { AvatarImage, AvatarFallback, Avatar } from "$lib/components/ui/avatar"
   import { Button } from "$lib/components/ui/button"
@@ -27,49 +29,25 @@
     SidebarMenuButton,
   } from "$lib/components/ui/sidebar"
   import { Skeleton } from "$lib/components/ui/skeleton"
-  import context from "$lib/context.svelte"
+  import { userContext } from "$lib/context.svelte"
   import "../../app.css"
-  import Settings from "@lucide/svelte/icons/settings"
+    import Settings from "@lucide/svelte/icons/settings"
 
   const { children } = $props()
 </script>
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
-    <SidebarHeader class="overflow-hidden">
-      <div class="flex gap-4 items-center">
+    <SidebarHeader class="">
+      <div class="flex gap-4 items-center min-w-0">
         <Logo class="shrink-0" />
-        {#await context.user}
-          <div class="flex gap-2 items-center">
-            <Skeleton class="size-8" />
-            <div class="flex flex-col gap-1">
-              <Skeleton class="w-20 h-3" />
-              <Skeleton class="w-15 h-3" />
-            </div>
-          </div>
-        {:then user}
-          {#if user}
-            <Item size="xs" class="flex-nowrap grow">
-              <ItemMedia>
-                <Avatar class="*:rounded-lg size-8">
-                  <AvatarImage src={user.avatar} alt="User avatar" />
-                  <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
-                </Avatar>
-              </ItemMedia>
-              <ItemContent class="gap-0">
-                <ItemTitle>{user.displayName ?? user.username}</ItemTitle>
-                {#if user.displayName}
-                  <ItemDescription>@{user.username}</ItemDescription>
-                {/if}
-              </ItemContent>
-              <ItemActions>
-                <Button variant="secondary" size="icon-sm" href="/settings">
-                  <Settings />
-                </Button>
-              </ItemActions>
-            </Item>
-          {/if}
-        {/await}
+        <UserItem>
+          <ItemActions>
+            <Button variant="secondary" size="icon-sm" href="/settings">
+              <Settings />
+            </Button>
+          </ItemActions>
+        </UserItem>
       </div>
     </SidebarHeader>
     <SidebarContent class="overflow-hidden">
@@ -118,7 +96,7 @@
 {/snippet}
 
 {#snippet authButtons(size: ButtonSize = undefined)}
-  {#await context.user}
+  {#await userContext.user}
     <Skeleton class="w-full h-8" />
   {:then user}
     {#if user}
@@ -128,7 +106,7 @@
         class="grow"
         onclick={() => {
           cookieStore.delete("session_token")
-          context.user = Promise.resolve(null)
+          userContext.user = Promise.resolve(null)
         }}
         {size}
       >

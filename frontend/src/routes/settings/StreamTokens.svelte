@@ -36,6 +36,6 @@
   let tab = $state("profile")
 </script>
 
-<div class="p-4">
+<div class="p-4 grow flex flex-col gap-2">
   <h1 class="text-2xl font-bold">Stream tokens</h1>
 </div>

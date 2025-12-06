@@ -17,7 +17,7 @@
   let invalidDisplayName = $state(false)
 </script>
 
-<div class="p-4 grow">
+<div class="p-4 grow flex flex-col gap-2">
   <h1 class="text-2xl font-bold">Profile</h1>
   <form
     onsubmit={async (event) => {
@@ -28,7 +28,7 @@
     }}
   >
     <FieldSet>
-      <FieldGroup>
+      <FieldGroup class="max-w-lg">
         <Field
           id="username"
           label="Username"
