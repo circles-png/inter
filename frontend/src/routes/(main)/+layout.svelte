@@ -38,7 +38,7 @@
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
-    <SidebarHeader class="">
+    <SidebarHeader class="overflow-hidden">
       <div class="flex gap-4 items-center min-w-0">
         <Logo class="shrink-0" />
         <UserItem>
