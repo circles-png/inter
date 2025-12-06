@@ -40,8 +40,19 @@
   } from "$lib/components/ui/dropdown-menu"
   import { userContext } from "$lib/context.svelte"
   import UserItem from "$lib/components/UserItem.svelte"
+  import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+  } from "$lib/components/ui/tooltip"
 
   let tab = $state("profile")
+  const tabs = [
+    { icon: CircleUser, label: "Profile", value: "profile", description: "Manage your public profile" },
+    { icon: KeyRound, label: "Stream token", value: "token", description: "View and rotate stream tokens" },
+    { icon: Lock, label: "Security", value: "security", description: "Change your password" },
+  ]
 </script>
 
 <SidebarProvider>
@@ -50,21 +61,30 @@
       <SidebarGroup>
         <SidebarGroupLabel>Account</SidebarGroupLabel>
         <SidebarGroupContent>
-          <SidebarMenu>
-            {#each [{ icon: CircleUser, label: "Profile", value: "profile" }, { icon: KeyRound, label: "Stream tokens", value: "tokens" }, { icon: Lock, label: "Security", value: "security" }] as { icon: Icon, label, value }}
-              <SidebarMenuItem class="flex items-center gap-2">
-                <SidebarMenuButton
-                  onclick={() => {
-                    tab = value
-                  }}
-                  isActive={tab === value}
-                >
-                  <Icon />
-                  {label}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            {/each}
-          </SidebarMenu>
+          <TooltipProvider>
+            <SidebarMenu>
+              {#each tabs as { icon: Icon, label, value, description }}
+                <Tooltip>
+                  <TooltipTrigger>
+                    <SidebarMenuItem class="flex items-center gap-2">
+                      <SidebarMenuButton
+                        onclick={() => {
+                          tab = value
+                        }}
+                        isActive={tab === value}
+                      >
+                        <Icon />
+                        {label}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {description}
+                  </TooltipContent>
+                </Tooltip>
+              {/each}
+            </SidebarMenu>
+          </TooltipProvider>
         </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
@@ -99,7 +119,7 @@
   </Sidebar>
   {#if tab === "profile"}
     <Profile />
-  {:else if tab === "tokens"}
+  {:else if tab === "token"}
     <StreamTokens />
   {:else if tab === "security"}
     <Security />
