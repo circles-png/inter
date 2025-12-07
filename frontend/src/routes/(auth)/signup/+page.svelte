@@ -63,7 +63,7 @@
             bind:value={password}
             type="password"
             validate={async (password: string) =>
-              password.length >= 8 ? null : "Password must be at least 8 characters long"}
+              password.length >= 8 ? null : "Choose a password with at least 8 characters."}
             bind:invalid={invalidPassword}
             good="Password looks good!"
             autocomplete="new-password webauthn"

@@ -27,6 +27,10 @@ async def signup():
     reenter: str = data.get("reenter")
     if not username or not password or not reenter:
         return quart.Response("Enter a username and password.", status=BAD_REQUEST)
+    if len(password) < 8:
+        return quart.Response(
+            "Choose a password with at least 8 characters.", status=BAD_REQUEST
+        )
     if password != reenter:
         return quart.Response("Ensure passwords match.", status=BAD_REQUEST)
     if not users.available(username):
