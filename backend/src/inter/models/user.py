@@ -1,9 +1,10 @@
 from hashlib import sha256
 from http.client import GONE, UNAUTHORIZED
+from itertools import groupby
 from os import environ
 from random import choice
 import sqlite3
-from typing import Callable
+from typing import Any, Callable
 
 from quart import abort, request
 
@@ -19,13 +20,21 @@ class User:
         username: str,
         display_name: str,
         stream_token: str,
+        colour: int,
+        salt: str,
+        password_hash: bytes,
+        roles: list[int],
     ) -> None:
-        self.id = user_id
+        self._id = user_id
         self._username = username
         self._display_name = display_name
-        self.stream_token = stream_token
+        self._stream_token = stream_token
+        self._colour = colour
+        self._salt = salt
+        self._password_hash = password_hash
+        self.roles: list[int] = roles
+
         self.stream: Stream | None = None
-        self.colour: int = 0
 
     @staticmethod
     def from_session() -> "User":
@@ -41,6 +50,22 @@ class User:
         if not user:
             return abort(GONE)
         return user
+
+    @property
+    def id(self) -> int:
+        return self._id
+
+    @id.setter
+    def id(self, id: int) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set id = ? where id = ?",
+                (id, self.id),
+            )
+
+        users.reload()
 
     @property
     def username(self) -> str:
@@ -74,6 +99,70 @@ class User:
 
         users.reload()
 
+    @property
+    def stream_token(self) -> str:
+        return self._stream_token
+
+    @stream_token.setter
+    def stream_token(self, stream_token: str) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set stream_token = ? where id = ?",
+                (stream_token, self.id),
+            )
+
+        users.reload()
+
+    @property
+    def colour(self) -> int:
+        return self._colour
+
+    @colour.setter
+    def colour(self, colour: int) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set colour = ? where id = ?",
+                (colour, self.id),
+            )
+
+        users.reload()
+
+    @property
+    def salt(self) -> str:
+        return self._salt
+
+    @salt.setter
+    def salt(self, salt: str) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set salt = ? where id = ?",
+                (salt, self.id),
+            )
+
+        users.reload()
+
+    @property
+    def password_hash(self) -> bytes:
+        return self._password_hash
+
+    @password_hash.setter
+    def password_hash(self, password_hash: bytes) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set password_hash = ? where id = ?",
+                (password_hash, self.id),
+            )
+
+        users.reload()
+
 
 class Users:
     def __init__(self) -> None:
@@ -100,10 +189,35 @@ class Users:
     def reload(self) -> None:
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()
-            cursor.execute("select id, username, stream_token, display_name from users")
+            cursor.execute(
+                """
+                    select
+                        users.id, username, display_name, stream_token, colour, salt, password_hash,
+                        roles.id
+                    from
+                        users
+                        left join users_roles on users.id = users_roles.user
+                        left join roles on users_roles.role = roles.id
+                    order by
+                        users.id
+                """
+            )
+            user_id: Callable[[list[Any]], Any] = lambda row: row[0]
+            role: Callable[[list[Any]], Any] = lambda row: row[5]
             self.users = [
-                User(user_id, username, display_name, stream_token)
-                for user_id, username, stream_token, display_name in cursor.fetchall()
+                (
+                    lambda rows: User(
+                        *[
+                            # take the first row because they're all the same for these fields
+                            # exclude the last field (roles) because it's handled separately
+                            *rows[0][:-1],
+                            # unpack rows into `zip` to transpose records into columns,
+                            # then extract the roles
+                            role([*zip(*rows)]),
+                        ],
+                    )
+                )([*rows])
+                for _, rows in groupby(cursor.fetchall(), user_id)
             ]
 
     def add(self, username: str, display_name: str, password: str) -> int:

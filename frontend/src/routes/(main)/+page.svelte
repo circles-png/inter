@@ -6,7 +6,7 @@
   {#each { length: 6 }}
     <div class="flex flex-col gap-2">
       <Skeleton class="w-50 h-6" />
-      <div class="flex gap-2 overflow-x-auto">
+      <div class="flex gap-2 overflow-x-auto pb-1">
         {#each { length: 7 }}
           <div class="flex flex-col gap-2 grow">
             <Skeleton class="aspect-video w-96" />

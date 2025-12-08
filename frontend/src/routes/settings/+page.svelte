@@ -56,7 +56,7 @@
 </script>
 
 <SidebarProvider>
-  <Sidebar collapsible="none">
+  <Sidebar collapsible="none" class="shrink-0">
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Account</SidebarGroupLabel>

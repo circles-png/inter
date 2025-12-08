@@ -18,8 +18,8 @@
       cookieStore.delete("session_token")
       return null
     }
-    const { username, displayName, colour, avatarUrl } = await response.json()
-    return { username, displayName, avatar: avatarUrl, colour, roles: [] }
+    const { username, displayName, avatarUrl, colour, streamToken, roles } = await response.json()
+    return { username, displayName, avatar: avatarUrl, colour, streamToken, roles }
   })
 
   let mounted = false
@@ -35,13 +35,13 @@
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
       }).then(async (response) => {
+        userUpdateContext.userUpdate = null
         if (!response.ok) {
           const text = await response.text()
           toast.error("Error while updating profile", { description: text })
           return Promise.reject(text)
         }
-        toast.success("Profile updated successfully")
-        userUpdateContext.userUpdate = null
+        toast.success("Profile updated")
       })
     })
   })

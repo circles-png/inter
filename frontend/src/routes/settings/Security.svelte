@@ -1,41 +1,16 @@
 <script>
-  import StreamTokens from "./StreamTokens.svelte"
-
-  import Profile from "./Profile.svelte"
-
-  import Logo from "$lib/components/logo.svelte"
-  import { AvatarImage, AvatarFallback, Avatar } from "$lib/components/ui/avatar"
-  import { Button } from "$lib/components/ui/button"
-  import {
-    Item,
-    ItemMedia,
-    ItemContent,
-    ItemTitle,
-    ItemDescription,
-    ItemActions,
-  } from "$lib/components/ui/item"
-  import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarProvider,
-    SidebarRail,
-  } from "$lib/components/ui/sidebar"
-  import { Skeleton } from "$lib/components/ui/skeleton"
-  import Settings from "@lucide/svelte/icons/settings"
-  import CircleUser from "@lucide/svelte/icons/circle-user"
-  import KeyRound from "@lucide/svelte/icons/key-round"
-  import Lock from "@lucide/svelte/icons/lock"
   import { FieldGroup, FieldLabel, FieldSet } from "$lib/components/ui/field"
-  import Field from "$lib/components/form.svelte"
+  import Field, { submitButton } from "$lib/components/form.svelte"
+  import { userContext, userUpdateContext } from "$lib/context.svelte"
+  import { toast } from "svelte-sonner"
+  import { getApiEndpoint } from "$lib/utils.svelte"
 
-  let password = $state("")
+  let previous = $state("")
+  let next = $state("")
+  let reenter = $state("")
+
+  let invalidNext = $state(false)
+  let invalidReenter = $state(false)
 </script>
 
 <div class="p-4 grow flex flex-col gap-2">
@@ -43,7 +18,23 @@
   <form
     onsubmit={async (event) => {
       event.preventDefault()
-      userContext.user = Promise.resolve({ ...user, username, displayName })
+      userUpdateContext.userUpdate = fetch(getApiEndpoint("http", "auth/update/password"), {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: previous,
+          newPassword: next,
+          reenterPassword: reenter,
+        }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      }).then(async (response) => {
+        if (!response.ok) {
+          const text = await response.text()
+          toast.error("Error while updating password", { description: text })
+          return Promise.reject(text)
+        }
+        toast.success("Password updated")
+      })
       await userUpdateContext.userUpdate
       userUpdateContext.userUpdate = null
     }}
@@ -52,22 +43,44 @@
       <FieldGroup class="max-w-lg">
         <Field
           id="password"
-          label="Username"
-          bind:value={password}
-          debounce={300}
-          validate={async (username) => {
-            if (username == user.username) return undefined
-            return await validateUsername(username)
+          label="Current password"
+          bind:value={previous}
+          type="password"
+          autocomplete="current-password webauthn"
+        />
+        <Field
+          id="next"
+          label="New password"
+          bind:value={next}
+          validate={async (password) => {
+            if (password.length < 8) {
+              return "Choose a password with at least 8 characters."
+            }
+            return null
           }}
-          bind:invalid={invalidUsername}
-          good="Username looks good!"
-          description="This is your unique user handle."
-          validating="Checking username availability"
-          autocomplete="username webauthn"
+          good="Password looks good!"
+          type="password"
+          bind:invalid={invalidNext}
+          autocomplete="new-password webauthn"
+        />
+        <Field
+          id="reenter"
+          label="Re-enter new password"
+          bind:value={reenter}
+          validate={async (password) => {
+            if (password !== next) {
+              return "Ensure this matches your new password above."
+            }
+            return null
+          }}
+          good="Passwords match!"
+          type="password"
+          bind:invalid={invalidReenter}
+          autocomplete="new-password webauthn"
         />
         {@render submitButton(
           userUpdateContext.userUpdate,
-          !username || invalidUsername || invalidDisplayName,
+          !previous || !next || !reenter || invalidNext || invalidReenter,
           "Update",
         )}
       </FieldGroup>

@@ -83,6 +83,14 @@
     scrollbar-gutter: both-edges;
   }
 
+  *::-webkit-scrollbar {
+    @apply bg-transparent size-1.5;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full
+  }
+
   body {
     @apply bg-background text-foreground;
   }

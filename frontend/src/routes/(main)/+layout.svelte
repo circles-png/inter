@@ -70,7 +70,7 @@
       </SidebarGroup>
     </SidebarContent>
     <SidebarFooter class="overflow-hidden">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
         <SidebarTrigger />
         {@render authButtons()}
       </div>

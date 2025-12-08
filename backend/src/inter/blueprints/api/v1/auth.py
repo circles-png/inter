@@ -7,6 +7,7 @@ from quart import request
 from inter.models.session import Session
 from inter.models.user import User
 from inter.common import users
+from inter.utils import generate_secure_random_string
 
 auth = quart.Blueprint("auth", __name__, url_prefix="/auth/")
 
@@ -53,6 +54,8 @@ async def user():
             "displayName": user.display_name,
             "colour": user.colour,
             "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}",
+            "streamToken": user.stream_token,
+            "roles": user.roles,
         }
     )
 
@@ -97,5 +100,30 @@ async def update():
     display_name = data.get("displayName")
     if display_name is not None and display_name != user.display_name:
         user.display_name = display_name
+
+    return quart.Response(status=OK)
+
+@auth.route("/update/password", methods=["POST"])
+async def update_password():
+    user = User.from_session()
+    data = await request.get_json()
+
+    current = data.get("currentPassword")
+    new = data.get("newPassword")
+    reenter = data.get("reenterPassword")
+
+    if not current or not new or not reenter:
+        return quart.Response("Fill in all password fields.", status=BAD_REQUEST)
+    if new != reenter:
+        return quart.Response("Ensure new passwords match.", status=BAD_REQUEST)
+    if len(new) < 8:
+        return quart.Response(
+            "Choose a new password with at least 8 characters.", status=BAD_REQUEST
+        )
+    if sha256((current + user.salt).encode()).digest() != user.password_hash:
+        return quart.Response("Ensure current password is correct.", status=UNAUTHORIZED)
+
+    user.salt = generate_secure_random_string()
+    user.password_hash = sha256((new + user.salt).encode()).digest()
 
     return quart.Response(status=OK)

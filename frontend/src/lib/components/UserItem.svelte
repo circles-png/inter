@@ -53,7 +53,7 @@
                 <ItemDescription class="truncate block w-auto">@{user.username}</ItemDescription>
               </TooltipTrigger>
               <TooltipContent>
-                @{user.username}
+                {user.username}
               </TooltipContent>
             </Tooltip>
           {/if}
