@@ -103,6 +103,7 @@ async def update():
 
     return quart.Response(status=OK)
 
+
 @auth.route("/update/password", methods=["POST"])
 async def update_password():
     user = User.from_session()
@@ -121,9 +122,12 @@ async def update_password():
             "Choose a new password with at least 8 characters.", status=BAD_REQUEST
         )
     if sha256((current + user.salt).encode()).digest() != user.password_hash:
-        return quart.Response("Ensure current password is correct.", status=UNAUTHORIZED)
+        return quart.Response(
+            "Ensure current password is correct.", status=UNAUTHORIZED
+        )
 
-    user.salt = generate_secure_random_string()
-    user.password_hash = sha256((new + user.salt).encode()).digest()
+    salt = generate_secure_random_string()
+    user.salt = salt
+    user.password_hash = sha256((new + salt).encode()).digest()
 
     return quart.Response(status=OK)

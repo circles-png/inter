@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { page } from "$app/state"
   import Button from "$lib/components/ui/button/button.svelte"
   import { getApiEndpoint } from "$lib/utils.svelte"
   import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
+    import { loadUser } from "../../+layout.svelte"
   let username = $state("")
   let password = $state("")
   let submit: Promise<void> | null = $state(null)
@@ -32,7 +32,7 @@
             return Promise.reject(text)
           }
           await goto("/")
-          return Promise.resolve()
+          loadUser()
         })
       }}
     >

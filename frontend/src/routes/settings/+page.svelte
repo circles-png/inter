@@ -46,11 +46,22 @@
     TooltipProvider,
     TooltipTrigger,
   } from "$lib/components/ui/tooltip"
+    import { goto } from "$app/navigation"
 
   let tab = $state("profile")
   const tabs = [
-    { icon: CircleUser, label: "Profile", value: "profile", description: "Manage your public profile" },
-    { icon: KeyRound, label: "Stream token", value: "token", description: "View and rotate stream tokens" },
+    {
+      icon: CircleUser,
+      label: "Profile",
+      value: "profile",
+      description: "Manage your public profile",
+    },
+    {
+      icon: KeyRound,
+      label: "Stream token",
+      value: "token",
+      description: "View and rotate stream tokens",
+    },
     { icon: Lock, label: "Security", value: "security", description: "Change your password" },
   ]
 </script>
@@ -65,18 +76,20 @@
             <SidebarMenu>
               {#each tabs as { icon: Icon, label, value, description }}
                 <Tooltip>
-                  <TooltipTrigger>
-                    <SidebarMenuItem class="flex items-center gap-2">
-                      <SidebarMenuButton
-                        onclick={() => {
-                          tab = value
-                        }}
-                        isActive={tab === value}
-                      >
-                        <Icon />
-                        {label}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                  <TooltipTrigger
+                    class="flex items-center gap-2"
+                    onclick={() => {
+                      tab = value
+                    }}
+                  >
+                    {#snippet child({ props })}
+                      <SidebarMenuItem>
+                        <SidebarMenuButton isActive={tab === value} {...props}>
+                          <Icon />
+                          {label}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    {/snippet}
                   </TooltipTrigger>
                   <TooltipContent side="right">
                     {description}
@@ -94,21 +107,22 @@
           <ItemActions>
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <Button variant="secondary" size="icon-sm">
-                  <LogOut />
-                </Button>
+                {#snippet child({ props })}
+                  <Button variant="secondary" size="icon-sm" {...props}>
+                    <LogOut />
+                  </Button>
+                {/snippet}
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onclick={() => {
-                      cookieStore.delete("session_token")
-                      userContext.user = Promise.resolve(null)
-                    }}
-                  >
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+                <DropdownMenuItem
+                  onclick={() => {
+                    cookieStore.delete("session_token")
+                    userContext.user = Promise.resolve(null)
+                    goto("/")
+                  }}
+                >
+                  Log out
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </ItemActions>

@@ -33,6 +33,9 @@
           toast.error("Error while updating password", { description: text })
           return Promise.reject(text)
         }
+         previous = ""
+        next = ""
+        reenter = ""
         toast.success("Password updated")
       })
       await userUpdateContext.userUpdate

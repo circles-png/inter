@@ -193,31 +193,38 @@ class Users:
                 """
                     select
                         users.id, username, display_name, stream_token, colour, salt, password_hash,
-                        roles.id
+                        group_concat(roles.id, ' ')
                     from
                         users
                         left join users_roles on users.id = users_roles.user
                         left join roles on users_roles.role = roles.id
+                    group by
+                        users.id
                     order by
                         users.id
                 """
             )
-            user_id: Callable[[list[Any]], Any] = lambda row: row[0]
-            role: Callable[[list[Any]], Any] = lambda row: row[5]
             self.users = [
-                (
-                    lambda rows: User(
-                        *[
-                            # take the first row because they're all the same for these fields
-                            # exclude the last field (roles) because it's handled separately
-                            *rows[0][:-1],
-                            # unpack rows into `zip` to transpose records into columns,
-                            # then extract the roles
-                            role([*zip(*rows)]),
-                        ],
-                    )
-                )([*rows])
-                for _, rows in groupby(cursor.fetchall(), user_id)
+                User(
+                    id,
+                    username,
+                    display_name,
+                    stream_token,
+                    colour,
+                    salt,
+                    password_hash,
+                    roles.split(" ") if roles else [],
+                )
+                for (
+                    id,
+                    username,
+                    display_name,
+                    stream_token,
+                    colour,
+                    salt,
+                    password_hash,
+                    roles,
+                ) in cursor.fetchall()
             ]
 
     def add(self, username: str, display_name: str, password: str) -> int:

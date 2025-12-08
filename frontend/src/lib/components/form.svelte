@@ -51,30 +51,26 @@
 {#snippet submitButton(
   submit: Promise<void> | null,
   disabled: boolean,
-  next: string = "Continue",
-  waiting: string = "Processing",
-  done: string = "Redirecting",
+  next?: string,
+  waiting?: string,
+  done?: string,
 )}
-  {#snippet submitButtonInner(disabled: boolean)}
-    <Button type="submit" {disabled}>{next}</Button>
-  {/snippet}
-
   {#if submit}
     {#await submit}
       <Button type="submit" disabled variant="secondary">
         <Spinner />
-        {waiting}
+        {waiting ?? "Processing"}
       </Button>
     {:then}
       <Button type="submit" disabled variant="secondary">
         <Spinner />
-        {done}
+        {done ?? "Redirecting"}
       </Button>
     {:catch}
-      {@render submitButtonInner(disabled)}
+      <Button type="submit" {disabled}>{next ?? "Continue"}</Button>
     {/await}
   {:else}
-    {@render submitButtonInner(disabled)}
+    <Button type="submit" {disabled}>{next ?? "Continue"}</Button>
   {/if}
 {/snippet}
 

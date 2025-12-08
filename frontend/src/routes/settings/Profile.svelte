@@ -25,6 +25,7 @@
       userContext.user = Promise.resolve({ ...user, username, displayName })
       await userUpdateContext.userUpdate
       userUpdateContext.userUpdate = null
+      toast.success("Account updated")
     }}
   >
     <FieldSet>

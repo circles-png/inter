@@ -1,3 +1,21 @@
+<script module>
+  export function loadUser() {
+    userContext.user = fetch(getApiEndpoint("http", "auth/user"), {
+      method: "GET",
+      credentials: "same-origin",
+    }).then(async (response) => {
+      if (response.status === 401) {
+        return null
+      } else if (response.status === 500) {
+        cookieStore.delete("session_token")
+        return null
+      }
+      const { username, displayName, avatarUrl, colour, streamToken, roles } = await response.json()
+      return { username, displayName, avatar: avatarUrl, colour, streamToken, roles }
+    })
+  }
+</script>
+
 <script lang="ts">
   import { Toaster } from "$lib/components/ui/sonner"
   import CircleAlert from "@lucide/svelte/icons/circle-alert"
@@ -7,20 +25,6 @@
   import { userContext, userUpdateContext } from "$lib/context.svelte"
   import { onMount } from "svelte"
   const { children } = $props()
-
-  userContext.user = fetch(getApiEndpoint("http", "auth/user"), {
-    method: "GET",
-    credentials: "same-origin",
-  }).then(async (response) => {
-    if (response.status === 401) {
-      return null
-    } else if (response.status === 500) {
-      cookieStore.delete("session_token")
-      return null
-    }
-    const { username, displayName, avatarUrl, colour, streamToken, roles } = await response.json()
-    return { username, displayName, avatar: avatarUrl, colour, streamToken, roles }
-  })
 
   let mounted = false
 
@@ -38,15 +42,15 @@
         userUpdateContext.userUpdate = null
         if (!response.ok) {
           const text = await response.text()
-          toast.error("Error while updating profile", { description: text })
+          toast.error("Error while updating account", { description: text })
           return Promise.reject(text)
         }
-        toast.success("Profile updated")
       })
     })
   })
 
   onMount(() => {
+    loadUser()
     mounted = true
   })
 </script>

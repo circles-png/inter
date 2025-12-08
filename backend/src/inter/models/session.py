@@ -48,7 +48,10 @@ class Session:
                 "select id, secret_hash, created_at, user from sessions where id = ?",
                 (session_id,),
             )
-            session_id, secret_hash, created_at, user = cursor.fetchone()
+            row = cursor.fetchone()
+            if not row:
+                return None
+            session_id, secret_hash, created_at, user = row
         created_at = datetime.fromtimestamp(created_at)
         if (datetime.now() - created_at).total_seconds() > 60 * 60 * 24:
             Session.delete(session_id)

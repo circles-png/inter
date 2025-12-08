@@ -38,7 +38,6 @@
             return Promise.reject(text)
           }
           await goto("/")
-          return Promise.resolve()
         })
       }}
     >

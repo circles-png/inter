@@ -38,19 +38,24 @@
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
-              <ItemTitle class="truncate block w-auto">
-                {user.displayName ?? user.username}
-              </ItemTitle>
+              {#snippet child({ props })}
+                <ItemTitle class="truncate block w-auto" {...props}>
+                  {user.displayName || user.username}
+                </ItemTitle>
+              {/snippet}
             </TooltipTrigger>
             <TooltipContent>
-              {user.displayName ?? user.username}
+              {user.displayName || user.username}
             </TooltipContent>
           </Tooltip>
-
           {#if user.displayName}
             <Tooltip>
               <TooltipTrigger>
-                <ItemDescription class="truncate block w-auto">@{user.username}</ItemDescription>
+                {#snippet child({ props })}
+                  <ItemDescription class="truncate block w-auto" {...props}>
+                    @{user.username}
+                  </ItemDescription>
+                {/snippet}
               </TooltipTrigger>
               <TooltipContent>
                 {user.username}
