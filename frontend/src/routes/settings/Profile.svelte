@@ -6,16 +6,23 @@
   import { toast } from "svelte-sonner"
   import { userContext, userUpdateContext } from "$lib/context.svelte"
   import { resolve } from "$app/paths"
+  import type { User } from "../../models/user"
 
-  const user = await userContext.user
-  if (user === null) {
-    goto(resolve("/login"))
-    throw new Error("Redirecting to login")
-  }
-  let username = $state(user.username)
-  let displayName = $state(user.displayName ?? "")
+  let initial: User | null = null
+  let username = $state("")
+  let displayName = $state("")
   let invalidUsername = $state(false)
   let invalidDisplayName = $state(false)
+
+  userContext.user.then(async (user) => {
+    if (user === null) {
+      await goto(resolve("/login"))
+      return
+    }
+    initial = user
+    username = user.username
+    displayName = user.displayName
+  })
 </script>
 
 <div class="p-4 grow flex flex-col gap-2">
@@ -23,6 +30,8 @@
   <form
     onsubmit={async (event) => {
       event.preventDefault()
+      const user = await userContext.user
+      if (!user) return
       userContext.user = Promise.resolve({ ...user, username, displayName })
       await userUpdateContext.userUpdate
       userUpdateContext.userUpdate = null
@@ -37,7 +46,8 @@
           bind:value={username}
           debounce={300}
           validate={async (username) => {
-            if (username == user.username) return undefined
+            if (!initial) return undefined
+            if (username == initial.username) return undefined
             return await validateUsername(username)
           }}
           bind:invalid={invalidUsername}
@@ -51,7 +61,8 @@
           label="Display name"
           bind:value={displayName}
           validate={async (displayName) => {
-            if (displayName == user.displayName) return undefined
+            if (!initial) return undefined
+            if (displayName == initial.displayName) return undefined
             if (new TextEncoder().encode(displayName).byteLength > 32) {
               return "Choose a shorter display name."
             }

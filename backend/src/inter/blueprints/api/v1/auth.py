@@ -101,6 +101,10 @@ async def update():
     if display_name is not None and display_name != user.display_name:
         user.display_name = display_name
 
+    stream_token = data.get("streamToken")
+    if stream_token is not None and stream_token != user.stream_token:
+        user.stream_token = stream_token
+
     return quart.Response(status=OK)
 
 

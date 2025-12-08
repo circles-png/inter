@@ -98,17 +98,17 @@
             <DropdownMenu>
               <DropdownMenuTrigger>
                 {#snippet child({ props })}
-                  <Button variant="secondary" size="icon-sm" {...props}>
+                  <Button variant="secondary" size="icon" {...props}>
                     <LogOut />
                   </Button>
                 {/snippet}
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="end">
                 <DropdownMenuItem
-                  onclick={() => {
+                  onclick={async () => {
                     cookieStore.delete("session_token")
                     userContext.user = Promise.resolve(null)
-                    goto(resolve("/"))
+                    await goto(resolve("/"))
                   }}
                 >
                   Log out

@@ -36,7 +36,11 @@
       if (!user) return
       userUpdateContext.userUpdate = fetch(getApiEndpoint("http", "auth/update"), {
         method: "POST",
-        body: JSON.stringify({ username: user.username, displayName: user.displayName }),
+        body: JSON.stringify({
+          username: user.username,
+          displayName: user.displayName,
+          streamToken: user.streamToken,
+        }),
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
       }).then(async (response) => {

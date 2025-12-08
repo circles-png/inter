@@ -19,7 +19,7 @@
 
 <script lang="ts">
   import { cn } from "$lib/utils.js"
-  import type { ComponentProps } from "svelte"
+  import type { ComponentProps, Snippet } from "svelte"
   import { Button } from "$lib/components/ui/button/index.js"
 
   let {
@@ -29,19 +29,34 @@
     type = "button",
     variant = "ghost",
     size = "xs",
+    child,
     ...restProps
   }: Omit<ComponentProps<typeof Button>, "href" | "size"> & {
     size?: InputGroupButtonSize
+    child?: Snippet<[{ props: { [key: string]: unknown } }]>
   } = $props()
 </script>
 
-<Button
-  bind:ref
-  {type}
-  data-size={size}
-  {variant}
-  class={cn(inputGroupButtonVariants({ size }), className)}
-  {...restProps}
->
-  {@render children?.()}
-</Button>
+{#if child}
+  {@render child({
+    props: {
+      ref,
+      type,
+      variant,
+      size,
+      class: cn(inputGroupButtonVariants({ size }), className),
+      ...restProps,
+    },
+  })}
+{:else}
+  <Button
+    bind:ref
+    {type}
+    data-size={size}
+    {variant}
+    class={cn(inputGroupButtonVariants({ size }), className)}
+    {...restProps}
+  >
+    {@render children?.()}
+  </Button>
+{/if}

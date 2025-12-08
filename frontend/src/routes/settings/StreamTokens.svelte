@@ -7,7 +7,6 @@
     BreadcrumbPage,
     BreadcrumbSeparator,
   } from "$lib/components/ui/breadcrumb"
-  import Copy from "@lucide/svelte/icons/copy"
   import RotateCw from "@lucide/svelte/icons/rotate-cw"
   import {
     InputGroup,
@@ -15,6 +14,31 @@
     InputGroupButton,
     InputGroupInput,
   } from "$lib/components/ui/input-group"
+  import { userContext } from "$lib/context.svelte"
+  import { CopyButton } from "$lib/components/ui/copy-button"
+  import { getApiEndpoint } from "$lib/utils.svelte"
+  import { toast } from "svelte-sonner"
+  import { goto } from "$app/navigation"
+  import { resolve } from "$app/paths"
+
+  let token = {
+    async get() {
+      const user = await userContext.user
+      if (!user) {
+        await goto(resolve("/login"))
+        return ""
+      }
+      return user.streamToken
+    },
+    async set(newToken: string) {
+      const user = await userContext.user
+      if (!user) {
+        await goto(resolve("/login"))
+        return ""
+      }
+      userContext.user = Promise.resolve({ ...user, streamToken: newToken })
+    },
+  }
 </script>
 
 <div class="p-4 grow flex flex-col gap-2">
@@ -22,14 +46,22 @@
   <Field>
     <FieldLabel>Your token</FieldLabel>
     <InputGroup>
-      <InputGroupInput type="password" disabled />
+      <InputGroupInput disabled value={await token.get()} />
       <InputGroupAddon align="inline-end">
         <InputGroupButton>
-          <Copy />
+          {#snippet child({ props })}
+            <CopyButton text={await token.get()} {...props}>Copy</CopyButton>
+          {/snippet}
         </InputGroupButton>
       </InputGroupAddon>
       <InputGroupAddon align="inline-end">
-        <InputGroupButton>
+        <InputGroupButton
+          onclick={async () => {
+            const response = await fetch(getApiEndpoint("http", "stream-token"))
+            token.set(await response.text())
+            toast.success("Stream token rotated")
+          }}
+        >
           <RotateCw />
           Rotate
         </InputGroupButton>
