@@ -36,7 +36,7 @@
         <Logo class="shrink-0" />
         <UserItem>
           <ItemActions>
-            <Button variant="secondary" size="icon-sm" href="/settings">
+            <Button variant="secondary" size="icon" href="/settings">
               <Settings />
             </Button>
           </ItemActions>
