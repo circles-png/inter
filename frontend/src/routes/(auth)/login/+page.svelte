@@ -5,7 +5,8 @@
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
-    import { loadUser } from "../../+layout.svelte"
+  import { loadUser } from "../../+layout.svelte"
+  import { resolve } from "$app/paths"
   let username = $state("")
   let password = $state("")
   let submit: Promise<void> | null = $state(null)
@@ -31,7 +32,7 @@
             toast.error("Error while logging in", { description: text })
             return Promise.reject(text)
           }
-          await goto("/")
+          await goto(resolve("/"))
           loadUser()
         })
       }}

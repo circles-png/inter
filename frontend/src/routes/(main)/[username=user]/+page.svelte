@@ -10,7 +10,6 @@
   import Chat from "../../../stories/Chat.svelte"
   import Details from "../../../stories/Details.svelte"
 
-  let user = $state<User>()
   let content = $state({
     creator: {
       id: 1,
@@ -64,10 +63,11 @@
       let connect = async () => {
         let offer = await connection.createOffer()
         connection.setLocalDescription(offer)
-        let response = await fetch(
-          getApiEndpoint("http", `stream/${username}/rx`),
-          { method: "POST", headers: { "Content-Type": "application/sdp" }, body: offer.sdp },
-        )
+        let response = await fetch(getApiEndpoint("http", `stream/${username}/rx`), {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: offer.sdp,
+        })
         let answer = await response.text()
         await connection.setRemoteDescription(
           new RTCSessionDescription({ sdp: answer, type: "answer" }),

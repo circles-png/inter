@@ -2,13 +2,14 @@
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import Field, { submitButton } from "$lib/components/form.svelte"
   import { goto } from "$app/navigation"
-  import { getApiEndpoint, validateUsername } from "$lib/utils.svelte"
+  import { validateUsername } from "$lib/utils.svelte"
   import { toast } from "svelte-sonner"
   import { userContext, userUpdateContext } from "$lib/context.svelte"
+  import { resolve } from "$app/paths"
 
   const user = await userContext.user
   if (user === null) {
-    goto("/login")
+    goto(resolve("/login"))
     throw new Error("Redirecting to login")
   }
   let username = $state(user.username)

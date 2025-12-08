@@ -2,17 +2,8 @@
   import Security from "./Security.svelte"
   import StreamTokens from "./StreamTokens.svelte"
   import Profile from "./Profile.svelte"
-  import Logo from "$lib/components/logo.svelte"
-  import { AvatarImage, AvatarFallback, Avatar } from "$lib/components/ui/avatar"
   import { Button } from "$lib/components/ui/button"
-  import {
-    Item,
-    ItemMedia,
-    ItemContent,
-    ItemTitle,
-    ItemDescription,
-    ItemActions,
-  } from "$lib/components/ui/item"
+  import { ItemActions } from "$lib/components/ui/item"
   import {
     Sidebar,
     SidebarContent,
@@ -26,7 +17,6 @@
     SidebarProvider,
     SidebarRail,
   } from "$lib/components/ui/sidebar"
-  import { Skeleton } from "$lib/components/ui/skeleton"
   import LogOut from "@lucide/svelte/icons/log-out"
   import CircleUser from "@lucide/svelte/icons/circle-user"
   import KeyRound from "@lucide/svelte/icons/key-round"
@@ -34,7 +24,6 @@
   import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuTrigger,
   } from "$lib/components/ui/dropdown-menu"
@@ -46,7 +35,8 @@
     TooltipProvider,
     TooltipTrigger,
   } from "$lib/components/ui/tooltip"
-    import { goto } from "$app/navigation"
+  import { goto } from "$app/navigation"
+  import { resolve } from "$app/paths"
 
   let tab = $state("profile")
   const tabs = [
@@ -74,7 +64,7 @@
         <SidebarGroupContent>
           <TooltipProvider>
             <SidebarMenu>
-              {#each tabs as { icon: Icon, label, value, description }}
+              {#each tabs as { icon: Icon, label, value, description } (label)}
                 <Tooltip>
                   <TooltipTrigger
                     class="flex items-center gap-2"
@@ -118,7 +108,7 @@
                   onclick={() => {
                     cookieStore.delete("session_token")
                     userContext.user = Promise.resolve(null)
-                    goto("/")
+                    goto(resolve("/"))
                   }}
                 >
                   Log out

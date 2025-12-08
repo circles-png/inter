@@ -1,7 +1,6 @@
 <script module>
   import { defineMeta } from "@storybook/addon-svelte-csf"
   import Details from "./Details.svelte"
-  import { fn } from "storybook/test"
 
   const { Story } = defineMeta({
     title: "Components/Details",
@@ -14,13 +13,18 @@
   name="Default"
   args={{
     content: {
-      creator:
-        { id: 1, username: "Viewer", avatar: "http://picsum.photos/200", colour: "#aaf", roles: [] },
+      creator: {
+        id: 1,
+        username: "Viewer",
+        avatar: "http://picsum.photos/200",
+        colour: "#aaf",
+        roles: [],
+      },
       title: "Sample Stream",
       description: "This is a sample stream description.",
       game: "Sample Game",
       viewerCount: 1234,
       duration: "12:34:56",
-    }
+    },
   }}
 />

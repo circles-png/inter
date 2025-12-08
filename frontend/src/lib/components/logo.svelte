@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { cn } from "$lib/utils"
+  import { cn } from "$lib/utils"
   import type { ClassValue } from "tailwind-variants"
 
   const {
@@ -11,7 +11,7 @@
     variant?: "primary" | "secondary"
     wordmark?: boolean
     class?: ClassValue
-    [key: string]: any
+    [key: string]: unknown
   } = $props()
 </script>
 

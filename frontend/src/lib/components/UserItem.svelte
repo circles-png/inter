@@ -1,14 +1,7 @@
 <script lang="ts">
   import Logo from "$lib/components/logo.svelte"
   import { AvatarImage, AvatarFallback, Avatar } from "$lib/components/ui/avatar"
-  import {
-    Item,
-    ItemActions,
-    ItemContent,
-    ItemDescription,
-    ItemMedia,
-    ItemTitle,
-  } from "$lib/components/ui/item"
+  import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "$lib/components/ui/item"
   import { Skeleton } from "$lib/components/ui/skeleton"
   import { userContext } from "$lib/context.svelte"
   import "../../app.css"

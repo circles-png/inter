@@ -1,10 +1,9 @@
 from hashlib import sha256
 from http.client import GONE, UNAUTHORIZED
-from itertools import groupby
 from os import environ
 from random import choice
 import sqlite3
-from typing import Any, Callable
+from typing import Callable
 
 from quart import abort, request
 

@@ -1,13 +1,8 @@
 <script module>
   import { defineMeta } from "@storybook/addon-svelte-csf"
   import Message from "./Message.svelte"
-  import { fn } from "storybook/test"
 
-  const { Story } = defineMeta({
-    title: "Atoms/Message",
-    component: Message,
-    tags: ["autodocs"],
-  })
+  const { Story } = defineMeta({ title: "Atoms/Message", component: Message, tags: ["autodocs"] })
 </script>
 
 <Story

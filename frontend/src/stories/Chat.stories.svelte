@@ -1,7 +1,6 @@
 <script module>
   import { defineMeta } from "@storybook/addon-svelte-csf"
   import Chat from "./Chat.svelte"
-  import { fn } from "storybook/test"
 
   const { Story } = defineMeta({
     title: "Components/Chat",

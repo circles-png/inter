@@ -1,43 +1,5 @@
 <script lang="ts">
-  import Profile from "./Profile.svelte"
-
-  import Logo from "$lib/components/logo.svelte"
-  import { AvatarImage, AvatarFallback, Avatar } from "$lib/components/ui/avatar"
-  import { Button } from "$lib/components/ui/button"
-  import {
-    Item,
-    ItemMedia,
-    ItemContent,
-    ItemTitle,
-    ItemDescription,
-    ItemActions,
-  } from "$lib/components/ui/item"
-  import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarProvider,
-    SidebarRail,
-  } from "$lib/components/ui/sidebar"
-  import { Skeleton } from "$lib/components/ui/skeleton"
-  import Settings from "@lucide/svelte/icons/settings"
-  import CircleUser from "@lucide/svelte/icons/circle-user"
-  import KeyRound from "@lucide/svelte/icons/key-round"
-  import Lock from "@lucide/svelte/icons/lock"
-  import {
-    Field,
-    FieldDescription,
-    FieldGroup,
-    FieldLabel,
-    FieldSet,
-  } from "$lib/components/ui/field"
-  import { Input } from "$lib/components/ui/input"
+  import { Field, FieldDescription, FieldLabel } from "$lib/components/ui/field"
   import {
     Breadcrumb,
     BreadcrumbItem,
@@ -53,7 +15,6 @@
     InputGroupButton,
     InputGroupInput,
   } from "$lib/components/ui/input-group"
-
 </script>
 
 <div class="p-4 grow flex flex-col gap-2">
@@ -61,7 +22,7 @@
   <Field>
     <FieldLabel>Your token</FieldLabel>
     <InputGroup>
-      <InputGroupInput type="password" disabled/>
+      <InputGroupInput type="password" disabled />
       <InputGroupAddon align="inline-end">
         <InputGroupButton>
           <Copy />

@@ -1,7 +1,7 @@
 <script>
-  import { FieldGroup, FieldLabel, FieldSet } from "$lib/components/ui/field"
+  import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import Field, { submitButton } from "$lib/components/form.svelte"
-  import { userContext, userUpdateContext } from "$lib/context.svelte"
+  import { userUpdateContext } from "$lib/context.svelte"
   import { toast } from "svelte-sonner"
   import { getApiEndpoint } from "$lib/utils.svelte"
 
@@ -33,7 +33,7 @@
           toast.error("Error while updating password", { description: text })
           return Promise.reject(text)
         }
-         previous = ""
+        previous = ""
         next = ""
         reenter = ""
         toast.success("Password updated")

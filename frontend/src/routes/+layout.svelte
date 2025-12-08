@@ -29,6 +29,7 @@
   let mounted = false
 
   $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     userContext.user
     if (!mounted) return
     userContext.user.then((user) => {
