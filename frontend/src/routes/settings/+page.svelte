@@ -16,6 +16,7 @@
     SidebarMenuItem,
     SidebarProvider,
     SidebarRail,
+    SidebarTrigger,
   } from "$lib/components/ui/sidebar"
   import LogOut from "@lucide/svelte/icons/log-out"
   import CircleUser from "@lucide/svelte/icons/circle-user"
@@ -37,6 +38,7 @@
   } from "$lib/components/ui/tooltip"
   import { goto } from "$app/navigation"
   import { resolve } from "$app/paths"
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte"
 
   let tab = $state("profile")
   const tabs = [
@@ -54,10 +56,12 @@
     },
     { icon: Lock, label: "Security", value: "security", description: "Change your password" },
   ]
+
+  const isMobile = new IsMobile()
 </script>
 
 <SidebarProvider>
-  <Sidebar collapsible="none" class="shrink-0">
+  <Sidebar collapsible={isMobile ? "offcanvas" : "none"} class="shrink-0">
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Account</SidebarGroupLabel>
@@ -121,11 +125,16 @@
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>
-  {#if tab === "profile"}
-    <Profile />
-  {:else if tab === "token"}
-    <StreamTokens />
-  {:else if tab === "security"}
-    <Security />
-  {/if}
+  <div class="flex flex-col grow">
+    {#if isMobile}
+      <SidebarTrigger />
+    {/if}
+    {#if tab === "profile"}
+      <Profile />
+    {:else if tab === "token"}
+      <StreamTokens />
+    {:else if tab === "security"}
+      <Security />
+    {/if}
+  </div>
 </SidebarProvider>

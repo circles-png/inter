@@ -1,6 +1,7 @@
 from hashlib import sha256
 from http.client import BAD_REQUEST, CONFLICT, CREATED, OK, UNAUTHORIZED
 from os import environ
+import re
 import sqlite3
 import quart
 from quart import request
@@ -28,6 +29,16 @@ async def signup():
     reenter: str = data.get("reenter")
     if not username or not password or not reenter:
         return quart.Response("Enter a username and password.", status=BAD_REQUEST)
+    if re.match("^[a-z0-9_]*$", username) is None:
+        return quart.Response(
+            "Choose a username with only lowercase letters, numbers, and underscores.",
+            status=BAD_REQUEST,
+        )
+    if len(username) > 32:
+        return quart.Response(
+            "Choose a username with at most 32 characters.",
+            status=BAD_REQUEST,
+        )
     if len(password) < 8:
         return quart.Response(
             "Choose a password with at least 8 characters.", status=BAD_REQUEST
@@ -40,7 +51,7 @@ async def signup():
     session = Session(user_id)
     response = quart.Response(status=CREATED)
     response.set_cookie(
-        "session_token", session.token, max_age=86400, secure=True, samesite="Lax"
+        "session_token", session.token, max_age=86400, secure=False, samesite="Lax"
     )
     return response
 
