@@ -106,10 +106,25 @@ async def update():
     if username and username != user.username:
         if not users.available(username):
             return quart.Response(f"'{username}' is not available.", status=CONFLICT)
+        if re.match("^[a-z0-9_]*$", username) is None:
+            return quart.Response(
+                "Choose a username with only lowercase letters, numbers, and underscores.",
+                status=BAD_REQUEST,
+            )
+        if len(username) > 32:
+            return quart.Response(
+                "Choose a username with at most 32 characters.",
+                status=BAD_REQUEST,
+            )
         user.username = username
 
     display_name = data.get("displayName")
     if display_name is not None and display_name != user.display_name:
+        if len(display_name) < 32:
+            return quart.Response(
+                "Choose a display name with at most 32 characters.",
+                status=BAD_REQUEST,
+            )
         user.display_name = display_name
 
     stream_token = data.get("streamToken")
