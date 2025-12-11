@@ -51,7 +51,7 @@ async def signup():
     session = Session(user_id)
     response = quart.Response(status=CREATED)
     response.set_cookie(
-        "session_token", session.token, max_age=86400, secure=False, samesite="Lax"
+        "session_token", session.token, max_age=86400, secure=True, samesite="Lax"
     )
     return response
 
