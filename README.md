@@ -37,6 +37,13 @@ Compatible with all WHIP streaming clients.
 6. To run the application, execute `./scripts/run.nu`.
 7. Open your web browser and navigate to `http://localhost:5001` to access the frontend interface.
 
+### via Github Actions
+
+1. Download an artifact from the latest workflow run and unzip.
+2. `cd` into its backend folder,
+3. `poetry install` or `python -m pip install -r requirements.txt` to install dependencies.
+4. Run with `PROD=1 poetry run hypercorn "src/inter:create_app()" -b 0.0.0.0:5001`.
+
 ## Internals
 
 Internal documentation can be found in the Wiki section of this repository.
