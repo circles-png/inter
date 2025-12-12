@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 25
-      - run: cd ${GITHUB_WORKSPACE}/frontend
+      - run: cd $GITHUB_WORKSPACE/frontend
       - run: npm i
       - run: npm run build
       - run: cd ..
