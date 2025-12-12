@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cd frontend
       - uses: actions/setup-node@v6
         with:
           node-version: 25
+      - run: cd ${GITHUB_WORKSPACE}/frontend
       - run: npm i
       - run: npm run build
       - run: cd ..
