@@ -3,7 +3,7 @@
   import type { ClassValue } from "tailwind-variants"
 
   const {
-    variant = "secondary",
+    // variant = "secondary",
     wordmark = false,
     class: classNames,
     ...props

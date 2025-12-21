@@ -40,35 +40,23 @@ export function serverWithFetch(f: typeof window.fetch) {
   function createBase(f: typeof window.fetch, path: string) {
     return {
       async _fetch(url, init) {
-        return f(
-          this.resolve(url),
-          { ...init, credentials: "same-origin" },
-        )
+        return f(this.resolve(url), { ...init, credentials: "same-origin" })
       },
       resolve(url: string) {
         return path + url
       },
       get(url: URL, headers?: HeadersInit) {
-        return this._fetch(url, {
-          method: "GET",
-          headers,
-        })
+        return this._fetch(url, { method: "GET", headers })
       },
       post(url: URL, body?: BodyInit, headers?: HeadersInit) {
-        return this._fetch(url, {
-          method: "POST",
-          body,
-          headers,
-        })
+        return this._fetch(url, { method: "POST", body, headers })
       },
       postJSON(url: URL, data: unknown) {
-        return this.post(url, JSON.stringify(data), {
-          "Content-Type": "application/json",
-        })
+        return this.post(url, JSON.stringify(data), { "Content-Type": "application/json" })
       },
     }
   }
-  return ({
+  return {
     ...createBase(f, "/api/v1"),
     async random() {
       return (await this.get("/random")).text()
@@ -85,11 +73,7 @@ export function serverWithFetch(f: typeof window.fetch) {
         return (await this.get(`/available/${encodeURIComponent(username)}`)).status === 200
       },
       async signup(username: string, password: string, reenter: string) {
-        await this.postJSON("/signup", {
-          username,
-          password,
-          reenter,
-        }).then(async (response) => {
+        await this.postJSON("/signup", { username, password, reenter }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
             toast.error("Error while signing up", { description: text })
@@ -105,14 +89,19 @@ export function serverWithFetch(f: typeof window.fetch) {
           cookieStore.delete("session_token")
           return null
         }
-        const { username, displayName, avatarUrl, colour, streamToken, roles } = await response.json()
-        return { username, displayName, avatar: avatarUrl, colour, streamToken, roles } satisfies User
+        const { username, displayName, avatarUrl, colour, streamToken, roles } =
+          await response.json()
+        return {
+          username,
+          displayName,
+          avatar: avatarUrl,
+          colour,
+          streamToken,
+          roles,
+        } satisfies User
       },
       async login(username: string, password: string) {
-        await this.postJSON("/login", {
-          username,
-          password,
-        }).then(async (response) => {
+        await this.postJSON("/login", { username, password }).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
             toast.error("Error while logging in", { description: text })
@@ -120,11 +109,7 @@ export function serverWithFetch(f: typeof window.fetch) {
           }
         })
       },
-      async update(data: {
-        username?: string,
-        displayName?: string,
-        colour?: string,
-      }) {
+      async update(data: { username?: string; displayName?: string; colour?: string }) {
         await this.postJSON("/update", data).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
@@ -148,20 +133,18 @@ export function serverWithFetch(f: typeof window.fetch) {
         })
       },
       async updatePassword(current: string, newPassword: string, reenter: string) {
-        await this.postJSON("/update/password", {
-          current,
-          newPassword,
-          reenter,
-        }).then(async (response) => {
-          if (!response.ok) {
-            const text = await response.text()
-            toast.error("Error while updating password", { description: text })
-            return Promise.reject(text)
-          }
-        })
-      }
-    }
-  })
+        await this.postJSON("/update/password", { current, newPassword, reenter }).then(
+          async (response) => {
+            if (!response.ok) {
+              const text = await response.text()
+              toast.error("Error while updating password", { description: text })
+              return Promise.reject(text)
+            }
+          },
+        )
+      },
+    },
+  }
 }
 
 export const server = serverWithFetch(fetch)

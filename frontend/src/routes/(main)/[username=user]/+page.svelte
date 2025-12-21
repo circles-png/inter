@@ -3,7 +3,6 @@
   import { ResizablePane } from "$lib/components/ui/resizable"
   import ResizableHandle from "$lib/components/ui/resizable/resizable-handle.svelte"
   import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte"
-  import { getApiEndpoint } from "$lib/utils.svelte"
   import type { Emote } from "../../../models/emote"
   import type { Message } from "../../../models/message"
   import type { User } from "../../../models/user"
@@ -28,6 +27,7 @@
   let messages = $state<{ message: Message; user: User }[]>([])
   let emotes = $state<Emote[]>([])
   let chatInput = $state("")
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let suggestions = $derived.by(() => {
     const parts = chatInput.split(" ")
     if (parts.length === 0) return []
@@ -63,7 +63,7 @@
       let connect = async () => {
         let offer = await connection.createOffer()
         connection.setLocalDescription(offer)
-        let response = await fetch(getApiEndpoint("http", `stream/${username}/rx`), {
+        let response = await fetch(`/stream/${username}/rx`, {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
           body: offer.sdp,
@@ -74,7 +74,7 @@
         )
       }
 
-      const ws = new WebSocket(getApiEndpoint("ws", `stream/${username}/ws`))
+      const ws = new WebSocket(`/stream/${username}/ws`)
       await new Promise((resolve) => {
         ws.onopen = resolve
       })

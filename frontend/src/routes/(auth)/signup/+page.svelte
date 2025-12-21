@@ -1,9 +1,8 @@
 <script lang="ts">
   import Button from "$lib/components/ui/button/button.svelte"
-  import { getApiEndpoint, server, validateUsername } from "$lib/utils.svelte"
+  import { server, validateUsername } from "$lib/utils.svelte"
   import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
-  import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
   import { resolve } from "$app/paths"
 
