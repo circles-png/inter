@@ -5,6 +5,7 @@ import re
 import sqlite3
 import quart
 from quart import request
+from quart.datastructures import FileStorage
 from inter.models.session import Session
 from inter.models.user import User
 from inter.common import users
@@ -64,7 +65,7 @@ async def user():
             "username": user.username,
             "displayName": user.display_name,
             "colour": user.colour,
-            "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}",
+            "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}" if users.avatar(user) else None,
             "streamToken": user.stream_token,
             "roles": user.roles,
         }
@@ -120,17 +121,33 @@ async def update():
 
     display_name = data.get("displayName")
     if display_name is not None and display_name != user.display_name:
-        if len(display_name) < 32:
+        if len(display_name) > 32:
             return quart.Response(
                 "Choose a display name with at most 32 characters.",
                 status=BAD_REQUEST,
             )
         user.display_name = display_name
 
-    stream_token = data.get("streamToken")
-    if stream_token is not None and stream_token != user.stream_token:
-        user.stream_token = stream_token
+    return quart.Response(status=OK)
 
+@auth.route("/update/stream-token", methods=["POST"])
+async def update_stream_token():
+    user = User.from_session()
+    user.stream_token = generate_secure_random_string()
+    return quart.Response(status=OK)
+
+@auth.route("/update/avatar", methods=["POST"])
+async def update_avatar():
+    user = User.from_session()  # type: ignore
+    form: MultiDict[str, FileStorage] = await request.files  # type: ignore
+    avatar = form.get("avatar")  # type: ignore
+    if avatar is None:
+        user.set_avatar(None)
+        return quart.Response(status=OK)
+    if not isinstance(avatar, FileStorage):
+        return quart.Response("Upload a profile picture.", status=BAD_REQUEST)
+    avatar = avatar.stream.read()
+    user.set_avatar(avatar)
     return quart.Response(status=OK)
 
 

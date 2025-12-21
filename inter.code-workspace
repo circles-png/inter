@@ -10,9 +10,85 @@
       "path": "backend"
     }
   ],
+  "launch": {
+    "configurations": [
+      {
+        "type": "chrome",
+        "request": "launch",
+        "name": "Launch Chrome against localhost",
+        "url": "http://localhost:5001",
+        "webRoot": "${workspaceFolder}/frontend/src",
+        "preLaunchTask": "backend dev",
+        "postDebugTask": "stop",
+      }
+    ]
+  },
   "settings": {
     "python.analysis.diagnosticSeverityOverrides": {
       "reportUnusedFunction": "none"
-    }
+    },
+    "files.associations": {
+      "*.css": "tailwindcss"
+    },
+    "editor.tabSize": 2,
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "backend dev",
+        "command": "poetry run quart run",
+        "type": "shell",
+        "isBackground": true,
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "."
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": "."
+          }
+        },
+        "options": {
+          "cwd": "./backend"
+        },
+        "dependsOn": [
+          "frontend dev"
+        ]
+      },
+      {
+        "label": "frontend dev",
+        "command": "pnpm run dev",
+        "type": "shell",
+        "isBackground": true,
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "."
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": "."
+          }
+        },
+        "options": {
+          "cwd": "./frontend"
+        }
+      },
+      {
+        "label": "stop",
+        "command": "echo ${input:terminate}",
+        "type": "shell"
+      },
+    ],
+    "inputs": [
+      {
+        "id": "terminate",
+        "type": "command",
+        "command": "workbench.action.tasks.terminate",
+        "args": "terminateAll"
+      }
+    ]
   }
 }

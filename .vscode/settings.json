@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "*.css": "tailwindcss"
-    },
-    "editor.tabSize": 2,
-    "python.analysis.diagnosticSeverityOverrides": {
-        "reportUnusedFunction": "none"
-    }
-}

@@ -1,12 +1,10 @@
 <script lang="ts">
   import Button from "$lib/components/ui/button/button.svelte"
-  import { getApiEndpoint } from "$lib/utils.svelte"
   import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
-  import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
-  import { loadUser } from "../../+layout.svelte"
   import { resolve } from "$app/paths"
+  import { server } from "$lib/utils.svelte"
   let username = $state("")
   let password = $state("")
   let submit: Promise<void> | null = $state(null)
@@ -21,19 +19,8 @@
       class="flex flex-col w-full max-w-sm gap-6"
       onsubmit={(event) => {
         event.preventDefault()
-        submit = fetch(getApiEndpoint("http", "auth/login"), {
-          method: "POST",
-          body: JSON.stringify({ username, password }),
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-        }).then(async (response) => {
-          if (!response.ok) {
-            const text = await response.text()
-            toast.error("Error while logging in", { description: text })
-            return Promise.reject(text)
-          }
+        submit = server.auth.login(username, password).then(async () => {
           await goto(resolve("/"))
-          loadUser()
         })
       }}
     >

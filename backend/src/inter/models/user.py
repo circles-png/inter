@@ -162,6 +162,16 @@ class User:
 
         users.reload()
 
+    def set_avatar(self, avatar_bytes: bytes | None) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set avatar = ? where id = ?",
+                (avatar_bytes, self.id),
+            )
+
+        users.reload()
 
 class Users:
     def __init__(self) -> None:

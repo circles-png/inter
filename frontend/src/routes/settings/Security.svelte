@@ -3,7 +3,7 @@
   import Field, { submitButton } from "$lib/components/form.svelte"
   import { userUpdateContext } from "$lib/context.svelte"
   import { toast } from "svelte-sonner"
-  import { getApiEndpoint } from "$lib/utils.svelte"
+  import { server } from "$lib/utils.svelte"
 
   let previous = $state("")
   let next = $state("")
@@ -18,28 +18,15 @@
   <form
     onsubmit={async (event) => {
       event.preventDefault()
-      userUpdateContext.userUpdate = fetch(getApiEndpoint("http", "auth/update/password"), {
-        method: "POST",
-        body: JSON.stringify({
-          currentPassword: previous,
-          newPassword: next,
-          reenterPassword: reenter,
-        }),
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-      }).then(async (response) => {
-        if (!response.ok) {
-          const text = await response.text()
-          toast.error("Error while updating password", { description: text })
-          return Promise.reject(text)
-        }
-        previous = ""
-        next = ""
-        reenter = ""
-        toast.success("Password updated")
-      })
-      await userUpdateContext.userUpdate
-      userUpdateContext.userUpdate = null
+      userUpdateContext.userUpdate = server.auth
+        .updatePassword(previous, next, reenter)
+        .then(async () => {
+          previous = ""
+          next = ""
+          reenter = ""
+          toast.success("Password updated")
+          userUpdateContext.userUpdate = null
+        })
     }}
   >
     <FieldSet>

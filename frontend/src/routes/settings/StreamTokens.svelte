@@ -16,14 +16,14 @@
   } from "$lib/components/ui/input-group"
   import { userContext } from "$lib/context.svelte"
   import { CopyButton } from "$lib/components/ui/copy-button"
-  import { getApiEndpoint } from "$lib/utils.svelte"
   import { toast } from "svelte-sonner"
   import { goto } from "$app/navigation"
   import { resolve } from "$app/paths"
+  import { server } from "$lib/utils.svelte"
 
   let token = {
     async get() {
-      const user = await userContext.user
+      const user = userContext.user
       if (!user) {
         await goto(resolve("/login"))
         return ""
@@ -31,12 +31,12 @@
       return user.streamToken
     },
     async set(newToken: string) {
-      const user = await userContext.user
+      const user = userContext.user
       if (!user) {
-        await goto(resolve("/login"))
-        return ""
+        goto(resolve("/login"))
+        return
       }
-      userContext.user = Promise.resolve({ ...user, streamToken: newToken })
+      userContext.user = { ...user, streamToken: newToken }
     },
   }
 </script>
@@ -57,8 +57,8 @@
       <InputGroupAddon align="inline-end">
         <InputGroupButton
           onclick={async () => {
-            const response = await fetch(getApiEndpoint("http", "stream-token"))
-            token.set(await response.text())
+            await server.auth.updateStreamToken()
+            token.set((await server.auth.user()).streamToken)
             toast.success("Stream token rotated")
           }}
         >
