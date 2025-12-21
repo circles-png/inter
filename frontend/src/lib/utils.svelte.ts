@@ -1,4 +1,5 @@
 import type { User } from "../models/user"
+import tailwindColours from "tailwindcss/colors"
 
 function debounce<A extends unknown[]>(f: (...args: A) => unknown, ms: number) {
   let timeout: number | null = null
@@ -109,7 +110,7 @@ export function serverWithFetch(f: typeof window.fetch) {
           }
         })
       },
-      async update(data: { username?: string; displayName?: string; colour?: string }) {
+      async update(data: { username?: string; displayName?: string; colour?: number }) {
         await this.postJSON("/update", data).then(async (response) => {
           if (!response.ok) {
             const text = await response.text()
@@ -148,3 +149,23 @@ export function serverWithFetch(f: typeof window.fetch) {
 }
 
 export const server = serverWithFetch(fetch)
+
+export const colours = [
+  tailwindColours.red,
+  tailwindColours.orange,
+  tailwindColours.amber,
+  tailwindColours.yellow,
+  tailwindColours.lime,
+  tailwindColours.green,
+  tailwindColours.emerald,
+  tailwindColours.teal,
+  tailwindColours.cyan,
+  tailwindColours.sky,
+  tailwindColours.blue,
+  tailwindColours.indigo,
+  tailwindColours.violet,
+  tailwindColours.purple,
+  tailwindColours.fuchsia,
+  tailwindColours.pink,
+  tailwindColours.rose,
+].map((color) => color["500"])

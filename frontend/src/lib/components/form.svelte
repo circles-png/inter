@@ -11,6 +11,7 @@
   import { Button } from "$lib/components/ui/button"
   import { debounced } from "$lib/utils.svelte"
   import type { FullAutoFill } from "svelte/elements"
+  import type { Snippet } from "svelte"
 
   let {
     id,
@@ -24,6 +25,8 @@
     description,
     validating,
     autocomplete,
+    children,
+    ...props
   }: {
     id: string
     label: string
@@ -36,6 +39,8 @@
     description?: string
     validating?: string
     autocomplete?: FullAutoFill
+    children?: Snippet
+    [key: string]: unknown
   } = $props()
   const debouncedValue = debounced(() => value, debounce)
   const error = $derived(validate?.(debouncedValue()) || Promise.resolve(undefined))
@@ -76,7 +81,10 @@
 
 <Field data-invalid={invalid}>
   <FieldLabel for={id}>{label}</FieldLabel>
-  <Input {id} bind:value aria-invalid={invalid} {type} name={id} {autocomplete} />
+  <div class="flex gap-2">
+    <Input {id} bind:value aria-invalid={invalid} {type} name={id} {autocomplete} {...props} />
+    {@render children?.()}
+  </div>
   {#if value && error !== undefined && !unchanged}
     {#await error}
       <p class="text-sm text-muted-foreground flex gap-1">

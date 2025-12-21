@@ -128,6 +128,14 @@ async def update():
             )
         user.display_name = display_name
 
+    colour = data.get("colour")
+    if colour is not None and colour != user.colour:
+        if not isinstance(colour, int) or not (0 <= colour <= 16):
+            return quart.Response(
+                "Choose a valid colour.", status=BAD_REQUEST
+            )
+        user.colour = colour
+
     return quart.Response(status=OK)
 
 @auth.route("/update/stream-token", methods=["POST"])

@@ -9,7 +9,11 @@
   $effect(() => {
     if (!userContext.user) return
     userUpdateContext.userUpdate = server.auth
-      .update({ username: userContext.user.username, displayName: userContext.user.displayName })
+      .update({
+        username: userContext.user.username,
+        displayName: userContext.user.displayName,
+        colour: userContext.user.colour,
+      })
       .then(() => {
         userUpdateContext.userUpdate = null
       })

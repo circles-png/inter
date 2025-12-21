@@ -8,13 +8,14 @@
   } from "$lib/components/ui/field"
   import Field, { submitButton } from "$lib/components/form.svelte"
   import { goto } from "$app/navigation"
-  import { server, validateUsername } from "$lib/utils.svelte"
+  import { colours, server, validateUsername } from "$lib/utils.svelte"
   import { toast } from "svelte-sonner"
   import { userContext, userUpdateContext } from "$lib/context.svelte"
   import { resolve } from "$app/paths"
   import type { User } from "../../models/user"
   import * as ImageCropper from "$lib/components/ui/image-cropper"
   import Separator from "$lib/components/ui/separator/separator.svelte"
+  import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover"
 
   let initial: User | null = userContext.user
   if (initial === null) {
@@ -23,6 +24,7 @@
   }
   let username = $state(initial.username)
   let displayName = $state(initial.displayName)
+  let colour = $state(initial.colour)
   let invalidUsername = $state(false)
   let invalidDisplayName = $state(false)
 
@@ -73,7 +75,7 @@
         event.preventDefault()
         const user = userContext.user
         if (!user) return
-        userContext.user = { ...user, username: username, displayName: displayName }
+        userContext.user = { ...user, username: username, displayName: displayName, colour: colour }
         await userUpdateContext.userUpdate
         toast.success("Account updated")
       }}
@@ -96,7 +98,30 @@
             description="This is your unique user handle."
             validating="Checking username availability"
             autocomplete="username webauthn"
-          />
+            class="transition-colors duration-300"
+            style={`color: ${colours[colour]}`}
+          >
+            <Popover>
+              <PopoverTrigger class="p-1 size-9" title="Choose colour">
+                <div
+                  class="size-7 border rounded-full transition-all duration-300 hover:brightness-110 hover:scale-105"
+                  style:background-color={colours[colour]}
+                ></div>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto" align="end">
+                <div class="grid grid-cols-5 gap-2">
+                  {#each colours as current, index (current)}
+                    <button
+                      style:background-color={current}
+                      class="size-7 border rounded-full hover:brightness-110 transition hover:scale-105"
+                      title={current}
+                      onclick={() => (colour = index)}
+                    ></button>
+                  {/each}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </Field>
           <Field
             id="display-name"
             label="Display name"
