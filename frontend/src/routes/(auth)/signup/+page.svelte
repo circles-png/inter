@@ -1,6 +1,6 @@
 <script lang="ts">
   import Button from "$lib/components/ui/button/button.svelte"
-  import { getApiEndpoint, validateUsername } from "$lib/utils.svelte"
+  import { getApiEndpoint, server, validateUsername } from "$lib/utils.svelte"
   import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { toast } from "svelte-sonner"
@@ -26,17 +26,7 @@
       class="flex flex-col w-full max-w-sm gap-6"
       onsubmit={(event) => {
         event.preventDefault()
-        submit = fetch(getApiEndpoint("http", "auth/signup"), {
-          method: "POST",
-          body: JSON.stringify({ username, password, reenter }),
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-        }).then(async (response) => {
-          if (!response.ok) {
-            const text = await response.text()
-            toast.error("Error while signing up", { description: text })
-            return Promise.reject(text)
-          }
+        submit = server.auth.signup(username, password, reenter).then(async () => {
           await goto(resolve("/"))
         })
       }}
