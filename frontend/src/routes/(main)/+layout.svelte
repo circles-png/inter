@@ -21,7 +21,6 @@
     SidebarMenu,
     SidebarMenuButton,
   } from "$lib/components/ui/sidebar"
-  import { Skeleton } from "$lib/components/ui/skeleton"
   import { userContext } from "$lib/context.svelte"
   import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
@@ -89,25 +88,21 @@
 {/snippet}
 
 {#snippet authButtons(size: ButtonSize = undefined)}
-  {#await userContext.user}
-    <Skeleton class="w-full h-8" />
-  {:then user}
-    {#if user}
-      <Button
-        variant="secondary"
-        href="/"
-        class="grow"
-        onclick={() => {
-          cookieStore.delete("session_token")
-          userContext.user = Promise.resolve(null)
-        }}
-        {size}
-      >
-        Log out
-      </Button>
-    {:else}
-      <Button variant="secondary" href="/login" class="grow" {size}>Log in</Button>
-      <Button href="/signup" class="grow" {size}>Sign up</Button>
-    {/if}
-  {/await}
+  {#if userContext.user}
+    <Button
+      variant="secondary"
+      href="/"
+      class="grow"
+      onclick={() => {
+        cookieStore.delete("session_token")
+        userContext.user = null
+      }}
+      {size}
+    >
+      Log out
+    </Button>
+  {:else}
+    <Button variant="secondary" href="/login" class="grow" {size}>Log in</Button>
+    <Button href="/signup" class="grow" {size}>Sign up</Button>
+  {/if}
 {/snippet}

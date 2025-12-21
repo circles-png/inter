@@ -2,7 +2,7 @@
   import Button from "$lib/components/ui/button/button.svelte"
   import Field, { submitButton } from "../../../lib/components/form.svelte"
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
-  import { goto } from "$app/navigation"
+  import { goto, invalidateAll } from "$app/navigation"
   import { resolve } from "$app/paths"
   import { server } from "$lib/utils.svelte"
   let username = $state("")
@@ -21,6 +21,7 @@
         event.preventDefault()
         submit = server.auth.login(username, password).then(async () => {
           await goto(resolve("/"))
+          invalidateAll()
         })
       }}
     >

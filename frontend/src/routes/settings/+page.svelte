@@ -111,7 +111,7 @@
                 <DropdownMenuItem
                   onclick={async () => {
                     cookieStore.delete("session_token")
-                    userContext.user = Promise.resolve(null)
+                    userContext.user = null
                     await goto(resolve("/"))
                   }}
                 >
