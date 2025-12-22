@@ -7,7 +7,6 @@ from typing import Callable
 
 from quart import abort, request
 
-from inter.common import COLOUR_COUNT
 from inter.models.session import Session
 from inter.models.stream import Stream
 from inter.utils import generate_secure_random_string
@@ -238,6 +237,7 @@ class Users:
             ]
 
     def add(self, username: str, display_name: str, password: str) -> int:
+        from inter.common import COLOUR_COUNT
         salt = generate_secure_random_string()
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()
