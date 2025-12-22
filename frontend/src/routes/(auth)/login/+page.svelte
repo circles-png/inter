@@ -20,8 +20,8 @@
       onsubmit={(event) => {
         event.preventDefault()
         submit = server.auth.login(username, password).then(async () => {
+          await invalidateAll()
           await goto(resolve("/"))
-          invalidateAll()
         })
       }}
     >
