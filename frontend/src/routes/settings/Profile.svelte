@@ -28,7 +28,7 @@
   let invalidUsername = $state(false)
   let invalidDisplayName = $state(false)
 
-  let src = $state<string | undefined>(initial.avatar || undefined)
+  let src = $state<string>(initial.avatar || "")
 </script>
 
 <div class="p-4 grow flex flex-col gap-2">
@@ -46,12 +46,12 @@
             toast.error("Error while updating profile picture", {
               description: "Choose a file smaller than 16 MiB.",
             })
-            src = user.avatar || undefined
+            src = user.avatar || ""
             return
           }
           userUpdateContext.userUpdate = server.auth.updateAvatar(file)
           await userUpdateContext.userUpdate
-          src = (await server.auth.user()).avatar || undefined
+          src = (await server.auth.user()).avatar || ""
           toast.success("Account updated")
           location.reload()
         }}
