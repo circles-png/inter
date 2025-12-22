@@ -41,43 +41,40 @@
   }
 </script>
 
-<div class="p-4 grow flex flex-col gap-2">
-  <h1 class="text-2xl font-bold">Stream tokens</h1>
-  <Field>
-    <FieldLabel>Your token</FieldLabel>
-    <InputGroup>
-      <InputGroupInput disabled value={await token.get()} />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton>
-          {#snippet child({ props })}
-            <CopyButton text={await token.get()} {...props}>Copy</CopyButton>
-          {/snippet}
-        </InputGroupButton>
-      </InputGroupAddon>
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          onclick={async () => {
-            await server.auth.updateStreamToken()
-            token.set((await server.auth.user()).streamToken)
-            toast.success("Stream token rotated")
-          }}
-        >
-          <RotateCw />
-          Rotate
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
-    <FieldDescription>
-      This is your stream token used for authentication. Keep it secret. In OBS Studio's {@render two(
-        "Settings",
-        "Stream",
-      )}, select {@render two("Service", "WHIP")} and enter the token in {@render two(
-        "Destination",
-        "Bearer Token",
-      )}.
-    </FieldDescription>
-  </Field>
-</div>
+<Field>
+  <FieldLabel>Your token</FieldLabel>
+  <InputGroup>
+    <InputGroupInput disabled value={await token.get()} class="overflow-scroll" />
+    <InputGroupAddon align="inline-end">
+      <InputGroupButton>
+        {#snippet child({ props })}
+          <CopyButton text={await token.get()} {...props}>Copy</CopyButton>
+        {/snippet}
+      </InputGroupButton>
+    </InputGroupAddon>
+    <InputGroupAddon align="inline-end">
+      <InputGroupButton
+        onclick={async () => {
+          await server.auth.updateStreamToken()
+          token.set((await server.auth.user()).streamToken)
+          toast.success("Stream token rotated")
+        }}
+      >
+        <RotateCw />
+        Rotate
+      </InputGroupButton>
+    </InputGroupAddon>
+  </InputGroup>
+  <FieldDescription>
+    This is your stream token used for authentication. Keep it secret. In OBS Studio's {@render two(
+      "Settings",
+      "Stream",
+    )}, select {@render two("Service", "WHIP")} and enter the token in {@render two(
+      "Destination",
+      "Bearer Token",
+    )}.
+  </FieldDescription>
+</Field>
 
 {#snippet two(a: string, b: string)}
   <Breadcrumb class="inline-block">

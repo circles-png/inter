@@ -15,7 +15,6 @@
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarProvider,
-    SidebarRail,
     SidebarTrigger,
   } from "$lib/components/ui/sidebar"
   import LogOut from "@lucide/svelte/icons/log-out"
@@ -123,18 +122,20 @@
         </UserItem>
       </div>
     </SidebarFooter>
-    <SidebarRail />
   </Sidebar>
   <div class="flex flex-col grow">
-    {#if isMobile}
-      <SidebarTrigger />
-    {/if}
-    {#if tab === "profile"}
-      <Profile />
-    {:else if tab === "token"}
-      <StreamTokens />
-    {:else if tab === "security"}
-      <Security />
-    {/if}
+    <div class="p-4 grow flex flex-col gap-2">
+      <div class="md:hidden flex gap-2">
+        <SidebarTrigger />
+        <h1 class="text-2xl font-bold">{tabs.find(({ value }) => value === tab)?.label}</h1>
+      </div>
+      {#if tab === "profile"}
+        <Profile />
+      {:else if tab === "token"}
+        <StreamTokens />
+      {:else if tab === "security"}
+        <Security />
+      {/if}
+    </div>
   </div>
 </SidebarProvider>
