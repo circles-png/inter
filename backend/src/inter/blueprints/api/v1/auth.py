@@ -8,7 +8,7 @@ from quart import request
 from quart.datastructures import FileStorage
 from inter.models.session import Session
 from inter.models.user import User
-from inter.common import users
+from inter.common import COLOUR_COUNT, users
 from inter.utils import generate_secure_random_string
 
 auth = quart.Blueprint("auth", __name__, url_prefix="/auth/")
@@ -130,7 +130,7 @@ async def update():
 
     colour = data.get("colour")
     if colour is not None and colour != user.colour:
-        if not isinstance(colour, int) or not (0 <= colour <= 16):
+        if not isinstance(colour, int) or not (0 <= colour < COLOUR_COUNT):
             return quart.Response(
                 "Choose a valid colour.", status=BAD_REQUEST
             )

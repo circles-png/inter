@@ -1,12 +1,13 @@
 from hashlib import sha256
 from http.client import GONE, UNAUTHORIZED
 from os import environ
-from random import choice
+from random import choice, randint
 import sqlite3
 from typing import Callable
 
 from quart import abort, request
 
+from inter.common import COLOUR_COUNT
 from inter.models.session import Session
 from inter.models.stream import Stream
 from inter.utils import generate_secure_random_string
@@ -248,7 +249,7 @@ class Users:
                     generate_secure_random_string(),
                     sha256((password + salt).encode()).digest(),
                     salt,
-                    1,
+                    randint(0, COLOUR_COUNT - 1),
                 ),
             )
             (user_id,) = cursor.fetchone()

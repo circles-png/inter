@@ -22,3 +22,5 @@ try:
 
 except requests.exceptions.ConnectionError:
     emotes = {}
+
+COLOUR_COUNT = 17
