@@ -32,7 +32,7 @@
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
-    <SidebarHeader>
+    <SidebarHeader class="overflow-clip">
       <SidebarMenu>
         <SidebarMenuItem class="flex items-center gap-2 *:last:grow">
           <a href={resolve("/")}>
@@ -59,6 +59,9 @@
               {#each data.following as followee (followee.username)}
                 <SidebarMenuItem>
                   <SidebarMenuButton size="lg">
+                    {#snippet tooltipContent()}
+                      {followee.displayName} (@{followee.username})
+                    {/snippet}
                     {#snippet child({ props })}
                       <a
                         href={resolve("/(main)/@[username=user]", { username: followee.username })}
