@@ -1,7 +1,6 @@
-<script>
+<script lang="ts">
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import Field, { submitButton } from "$lib/components/form.svelte"
-  import { userUpdateContext } from "$lib/context.svelte"
   import { toast } from "svelte-sonner"
   import { server } from "$lib/utils.svelte"
 
@@ -11,20 +10,19 @@
 
   let invalidNext = $state(false)
   let invalidReenter = $state(false)
+  let submit: Promise<void> | null = $state(null)
 </script>
 
 <form
   onsubmit={async (event) => {
     event.preventDefault()
-    userUpdateContext.userUpdate = server.auth
-      .updatePassword(previous, next, reenter)
-      .then(async () => {
-        previous = ""
-        next = ""
-        reenter = ""
-        toast.success("Password updated")
-        userUpdateContext.userUpdate = null
-      })
+    submit = server.auth.updatePassword(previous, next, reenter).then(async () => {
+      previous = ""
+      next = ""
+      reenter = ""
+      toast.success("Password updated")
+      submit = null
+    })
   }}
 >
   <FieldSet>
@@ -67,7 +65,7 @@
         autocomplete="new-password webauthn"
       />
       {@render submitButton(
-        userUpdateContext.userUpdate,
+        submit,
         !previous || !next || !reenter || invalidNext || invalidReenter,
         "Update",
       )}

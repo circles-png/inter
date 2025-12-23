@@ -13,7 +13,7 @@
 <div
   bind:this={ref}
   data-slot="item-title"
-  class={cn("flex w-fit items-center gap-2 text-sm font-medium leading-snug", className)}
+  class={cn("flex items-center gap-2 text-sm font-medium leading-snug", className)}
   {...restProps}
 >
   {@render children?.()}

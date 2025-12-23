@@ -21,69 +21,79 @@
     SidebarMenu,
     SidebarMenuButton,
   } from "$lib/components/ui/sidebar"
-  import { userContext } from "$lib/context.svelte"
   import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
   import { server } from "$lib/utils.svelte.js"
   import { resolve } from "$app/paths"
+  import { invalidateAll } from "$app/navigation"
 
   const { children, data } = $props()
 </script>
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
-    <SidebarHeader class="overflow-hidden">
-      <div class="flex gap-4 items-center min-w-0">
-        <a href={resolve("/")}>
-          <Logo class="shrink-0" />
-        </a>
-        <UserItem>
-          <ItemActions>
-            <Button variant="secondary" size="icon" href="/settings">
-              <Settings />
-            </Button>
-          </ItemActions>
-        </UserItem>
-      </div>
+    <SidebarHeader>
+      <SidebarMenu>
+        <SidebarMenuItem class="flex items-center gap-2 *:last:grow">
+          <a href={resolve("/")}>
+            <Logo class="shrink-0" />
+          </a>
+          {#if data.user}
+            <UserItem user={data.user}>
+              <ItemActions>
+                <Button variant="secondary" size="icon" href="/settings">
+                  <Settings />
+                </Button>
+              </ItemActions>
+            </UserItem>
+          {/if}
+        </SidebarMenuItem>
+      </SidebarMenu>
     </SidebarHeader>
-    <SidebarContent class="overflow-hidden">
-      <SidebarGroup>
-        <SidebarGroupLabel>Following</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {#each data.following as followee (followee.username)}
-              <SidebarMenuItem>
-                <SidebarMenuButton size="lg">
-                  {#snippet child({ props })}
-                    <a
-                      href={resolve("/(main)/@[username=user]", { username: followee.username })}
-                      {...props}
-                    >
-                      <Avatar class="*:rounded-lg size-8">
-                        <AvatarImage
-                          src={server.user.avatar(followee.username)}
-                          alt="User avatar"
-                        />
-                        <AvatarFallback
-                          ><Logo class="fill-muted-foreground size-6" /></AvatarFallback
-                        >
-                      </Avatar>
-                      {followee.displayName}
-                      <span class="text-muted-foreground">@{followee.username}</span>
-                    </a>
-                  {/snippet}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            {/each}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+    <SidebarContent>
+      {#if data.user}
+        <SidebarGroup>
+          <SidebarGroupLabel>Following</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {#each data.following as followee (followee.username)}
+                <SidebarMenuItem>
+                  <SidebarMenuButton size="lg">
+                    {#snippet child({ props })}
+                      <a
+                        href={resolve("/(main)/@[username=user]", { username: followee.username })}
+                        {...props}
+                      >
+                        <Avatar class="*:rounded-lg size-8">
+                          <AvatarImage
+                            src={server.user.avatar(followee.username)}
+                            alt={followee.username}
+                          />
+                          <AvatarFallback
+                            ><Logo class="fill-muted-foreground size-6" /></AvatarFallback
+                          >
+                        </Avatar>
+                        {followee.displayName}
+                        <span class="text-muted-foreground">@{followee.username}</span>
+                      </a>
+                    {/snippet}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              {/each}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      {/if}
     </SidebarContent>
-    <SidebarFooter class="overflow-hidden">
-      <div class="flex items-center gap-2">
-        <SidebarTrigger />
-        {@render authButtons()}
-      </div>
+    <SidebarFooter class="overflow-clip">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div class="flex items-center gap-3">
+            <SidebarTrigger />
+            {@render authButtons()}
+          </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>
@@ -106,14 +116,14 @@
 {/snippet}
 
 {#snippet authButtons(size: ButtonSize = undefined)}
-  {#if userContext.user}
+  {#if data.user}
     <Button
       variant="secondary"
       href="/"
       class="grow"
-      onclick={() => {
-        cookieStore.delete("session_token")
-        userContext.user = null
+      onclick={async () => {
+        await cookieStore.delete("session_token")
+        await invalidateAll()
       }}
       {size}
     >

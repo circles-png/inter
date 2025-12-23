@@ -27,9 +27,8 @@
     DropdownMenuItem,
     DropdownMenuTrigger,
   } from "$lib/components/ui/dropdown-menu"
-  import { userContext } from "$lib/context.svelte"
   import UserItem from "$lib/components/UserItem.svelte"
-  import { goto } from "$app/navigation"
+  import { goto, invalidateAll } from "$app/navigation"
   import { resolve } from "$app/paths"
   import { IsMobile } from "$lib/hooks/is-mobile.svelte"
 
@@ -49,6 +48,7 @@
     },
     { icon: Lock, label: "Security", value: "security", description: "Change your password" },
   ]
+  let { data } = $props()
 
   const isMobile = new IsMobile()
 </script>
@@ -79,32 +79,34 @@
       </SidebarGroup>
     </SidebarContent>
     <SidebarFooter>
-      <div class="flex items-center gap-4">
-        <UserItem>
-          <ItemActions>
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                {#snippet child({ props })}
-                  <Button variant="secondary" size="icon" {...props}>
-                    <LogOut />
-                  </Button>
-                {/snippet}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="end">
-                <DropdownMenuItem
-                  onclick={async () => {
-                    cookieStore.delete("session_token")
-                    userContext.user = null
-                    await goto(resolve("/"))
-                  }}
-                >
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </ItemActions>
-        </UserItem>
-      </div>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <UserItem user={data.user}>
+            <ItemActions>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  {#snippet child({ props })}
+                    <Button variant="secondary" size="icon" {...props}>
+                      <LogOut />
+                    </Button>
+                  {/snippet}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end">
+                  <DropdownMenuItem
+                    onclick={async () => {
+                      await cookieStore.delete("session_token")
+                      await invalidateAll()
+                      await goto(resolve("/"))
+                    }}
+                  >
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ItemActions>
+          </UserItem>
+        </SidebarMenuItem>
+      </SidebarMenu>
     </SidebarFooter>
   </Sidebar>
   <div class="flex flex-col grow">
@@ -114,9 +116,9 @@
         <h1 class="text-2xl font-bold">{tabs.find(({ value }) => value === tab)?.label}</h1>
       </div>
       {#if tab === "profile"}
-        <Profile />
+        <Profile user={data.user} />
       {:else if tab === "token"}
-        <StreamTokens />
+        <StreamTokens user={data.user} />
       {:else if tab === "security"}
         <Security />
       {/if}

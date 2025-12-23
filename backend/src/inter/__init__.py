@@ -3,9 +3,6 @@ from pathlib import Path
 
 def create_app():
     from dotenv import load_dotenv
-
-    load_dotenv()
-
     from os import environ
     from os.path import exists, join
     import quart
@@ -14,7 +11,10 @@ def create_app():
     from inter.blueprints.api import api
     from inter.common import app
 
+    load_dotenv()
     cors(app, allow_origin="http://localhost:5001", allow_credentials=True)
+    app.register_error_handler(404, lambda _: ("", 404))
+    app.register_error_handler(401, lambda _: ("", 401))
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")

@@ -14,41 +14,24 @@
     InputGroupButton,
     InputGroupInput,
   } from "$lib/components/ui/input-group"
-  import { userContext } from "$lib/context.svelte"
   import { CopyButton } from "$lib/components/ui/copy-button"
   import { toast } from "svelte-sonner"
-  import { goto } from "$app/navigation"
-  import { resolve } from "$app/paths"
   import { server } from "$lib/utils.svelte"
+  import { invalidateAll } from "$app/navigation"
+  import type { User } from "../../models/user"
 
-  let token = {
-    async get() {
-      const user = userContext.user
-      if (!user) {
-        await goto(resolve("/login"))
-        return ""
-      }
-      return user.streamToken
-    },
-    async set(newToken: string) {
-      const user = userContext.user
-      if (!user) {
-        goto(resolve("/login"))
-        return
-      }
-      userContext.user = { ...user, streamToken: newToken }
-    },
-  }
+  let { user }: { user: User } = $props()
+  const token = $derived(user.streamToken)
 </script>
 
 <Field>
   <FieldLabel>Your token</FieldLabel>
   <InputGroup>
-    <InputGroupInput disabled value={await token.get()} class="overflow-scroll" />
+    <InputGroupInput disabled value={await token} class="overflow-scroll" />
     <InputGroupAddon align="inline-end">
       <InputGroupButton>
         {#snippet child({ props })}
-          <CopyButton text={await token.get()} {...props}>Copy</CopyButton>
+          <CopyButton text={await token} {...props}>Copy</CopyButton>
         {/snippet}
       </InputGroupButton>
     </InputGroupAddon>
@@ -56,7 +39,7 @@
       <InputGroupButton
         onclick={async () => {
           await server.auth.updateStreamToken()
-          token.set((await server.auth.user()).streamToken)
+          await invalidateAll()
           toast.success("Stream token rotated")
         }}
       >

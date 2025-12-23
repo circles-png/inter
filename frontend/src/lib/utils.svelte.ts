@@ -88,10 +88,18 @@ export function serverWithFetch(f: typeof window.fetch) {
     self: {
       ...createBase(f, `${apiBase}/self`),
       async followers(): Promise<{ username: string; displayName: string }[]> {
-        return (await this.get(`/followers`)).json()
+        const response = await this.get(`/followers`)
+        if (!response.ok) {
+          return []
+        }
+        return response.json()
       },
       async following(): Promise<{ username: string; displayName: string }[]> {
-        return (await this.get(`/following`)).json()
+        const response = await this.get(`/following`)
+        if (!response.ok) {
+          return []
+        }
+        return response.json()
       },
     },
     auth: {
@@ -108,12 +116,9 @@ export function serverWithFetch(f: typeof window.fetch) {
           }
         })
       },
-      async user(): Promise<User> {
+      async user(): Promise<User | null> {
         const response = await this.get("/user")
         if (response.status === 401) {
-          return null
-        } else if (response.status === 500) {
-          cookieStore.delete("session_token")
           return null
         }
         const { username, displayName, colour, streamToken, roles } = await response.json()

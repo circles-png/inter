@@ -7,28 +7,27 @@
     FieldDescription,
   } from "$lib/components/ui/field"
   import Field, { submitButton } from "$lib/components/form.svelte"
-  import { goto } from "$app/navigation"
+  import { invalidateAll } from "$app/navigation"
   import { colours, server, validateUsername } from "$lib/utils.svelte"
   import { toast } from "svelte-sonner"
-  import { userContext, userUpdateContext } from "$lib/context.svelte"
-  import { resolve } from "$app/paths"
-  import type { User } from "../../models/user"
   import * as ImageCropper from "$lib/components/ui/image-cropper"
   import Separator from "$lib/components/ui/separator/separator.svelte"
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover"
+  import type { User } from "../../models/user"
 
-  let initial: User | null = userContext.user
-  if (initial === null) {
-    goto(resolve("/login"))
-    throw new Error("Redirecting to login")
-  }
-  let username = $state(initial.username)
-  let displayName = $state(initial.displayName)
-  let colour = $state(initial.colour)
+  let { user }: { user: User } = $props()
+  let next = $state({
+    next: {
+      username: user.username,
+      displayName: user.displayName,
+      colour: user.colour,
+      src: server.user.avatar(user.username),
+    },
+  })
+  let { username, displayName, colour, src } = $derived(next.next)
   let invalidUsername = $state(false)
   let invalidDisplayName = $state(false)
-
-  let src = $state<string>(initial.avatar || "")
+  let update: Promise<void> | null = $state(null)
 </script>
 
 <div class="flex gap-6">
@@ -37,19 +36,22 @@
     <ImageCropper.Root
       bind:src
       onCropped={async (url) => {
-        const user = userContext.user
-        if (!user) return
         const file = await ImageCropper.getFileFromUrl(url)
         if (file.size > 16 * 1024 * 1024) {
           toast.error("Error while updating profile picture", {
             description: "Choose a file smaller than 16 MiB.",
           })
-          src = user.avatar || ""
+          src = server.user.avatar(user.username)
           return
         }
-        userUpdateContext.userUpdate = server.auth.updateAvatar(file)
-        await userUpdateContext.userUpdate
-        src = (await server.auth.user()).avatar || ""
+        await server.auth.updateAvatar(file)
+        await invalidateAll()
+        next.next = {
+          username: user.username,
+          displayName: user.displayName,
+          colour: user.colour,
+          src: server.user.avatar(user.username),
+        }
         toast.success("Account updated")
         location.reload()
       }}
@@ -71,11 +73,10 @@
   <form
     onsubmit={async (event) => {
       event.preventDefault()
-      const user = userContext.user
-      if (!user) return
-      userContext.user = { ...user, username: username, displayName: displayName, colour: colour }
-      await userUpdateContext.userUpdate
+      update = server.auth.update({ username: username, displayName: displayName, colour: colour })
+      await invalidateAll()
       toast.success("Account updated")
+      update = null
     }}
     class="grow"
   >
@@ -87,8 +88,7 @@
           bind:value={username}
           debounce={300}
           validate={async (username) => {
-            if (!initial) return undefined
-            if (username == initial.username) return undefined
+            if (username == user.username) return undefined
             return await validateUsername(username)
           }}
           bind:invalid={invalidUsername}
@@ -125,8 +125,7 @@
           label="Display name"
           bind:value={displayName}
           validate={async (displayName) => {
-            if (!initial) return undefined
-            if (displayName == initial.displayName) return undefined
+            if (displayName == user.displayName) return undefined
             if (new TextEncoder().encode(displayName).byteLength > 32) {
               return "Choose a shorter display name."
             }
@@ -138,9 +137,11 @@
           autocomplete="name"
         />
         {@render submitButton(
-          userUpdateContext.userUpdate,
+          update,
           !username || invalidUsername || invalidDisplayName,
           "Update",
+          "Processing",
+          "Processing",
         )}
       </FieldGroup>
     </FieldSet>
