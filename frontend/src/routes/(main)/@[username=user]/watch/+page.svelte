@@ -3,11 +3,11 @@
   import { ResizablePane } from "$lib/components/ui/resizable"
   import ResizableHandle from "$lib/components/ui/resizable/resizable-handle.svelte"
   import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte"
-  import type { Emote } from "../../../models/emote"
-  import type { Message } from "../../../models/message"
-  import type { User } from "../../../models/user"
-  import Chat from "../../../stories/Chat.svelte"
-  import Details from "../../../stories/Details.svelte"
+  import type { Emote } from "../../../../models/emote"
+  import type { Message } from "../../../../models/message"
+  import type { User } from "../../../../models/user"
+  import Chat from "../../../../stories/Chat.svelte"
+  import Details from "../../../../stories/Details.svelte"
 
   let content = $state({
     creator: {

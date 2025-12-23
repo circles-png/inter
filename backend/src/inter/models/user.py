@@ -173,6 +173,77 @@ class User:
 
         users.reload()
 
+    def follow(self, user: "User") -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "insert into follow (follower, followee) values (?, ?)",
+                (self.id, user.id),
+            )
+
+        users.reload()
+
+    def unfollow(self, user: "User") -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "delete from follow where follower = ? and followee = ?",
+                (self.id, user.id),
+            )
+
+        users.reload()
+
+    def following_count(self) -> int:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select count(*) from follow where follower = ?",
+                (self.id,),
+            )
+            (count,) = cursor.fetchone()
+
+        return count
+
+    def followers_count(self) -> int:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select count(*) from follow where followee = ?",
+                (self.id,),
+            )
+            (count,) = cursor.fetchone()
+
+        return count
+
+    def following(self) -> list["User"]:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select followee from follow where follower = ?",
+                (self.id,),
+            )
+            followee_ids = [followee for followee, in cursor.fetchall()]
+
+        return [user for user in users.users if user.id in followee_ids]
+
+    def followers(self) -> list["User"]:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select follower from follow where followee = ?",
+                (self.id,),
+            )
+            follower_ids = [follower for follower, in cursor.fetchall()]
+
+        return [user for user in users.users if user.id in follower_ids]
+
+
 class Users:
     def __init__(self) -> None:
         self.reload()
@@ -238,6 +309,7 @@ class Users:
 
     def add(self, username: str, display_name: str, password: str) -> int:
         from inter.common import COLOUR_COUNT
+
         salt = generate_secure_random_string()
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
             cursor = db.cursor()

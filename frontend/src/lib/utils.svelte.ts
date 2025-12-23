@@ -37,6 +37,8 @@ export const validateUsername = async (username: string) => {
   return null
 }
 
+export const apiBase = "/api/v1"
+
 export function serverWithFetch(f: typeof window.fetch) {
   function createBase(f: typeof window.fetch, path: string) {
     return {
@@ -58,18 +60,42 @@ export function serverWithFetch(f: typeof window.fetch) {
     }
   }
   return {
-    ...createBase(f, "/api/v1"),
+    ...createBase(f, apiBase),
     async random() {
       return (await this.get("/random")).text()
     },
-    async avatar(username: string) {
-      return this.get(`/avatar/${encodeURIComponent(username)}`)
+    user: {
+      ...createBase(f, `${apiBase}/user`),
+      avatar(username: string) {
+        return this.resolve(`/${encodeURIComponent(username)}/avatar`)
+      },
+      async user(username: string): { displayName: string; colour: number } {
+        return (await this.get(`/${encodeURIComponent(username)}`)).json()
+      },
+      async follow(username: string) {
+        return this.post(`/${encodeURIComponent(username)}/follow`)
+      },
+      async unfollow(username: string) {
+        return this.post(`/${encodeURIComponent(username)}/unfollow`)
+      },
+      async followers(username: string): Promise<number> {
+        return (await this.get(`/${encodeURIComponent(username)}/followers`)).json()
+      },
+      async following(username: string): Promise<number> {
+        return (await this.get(`/${encodeURIComponent(username)}/following`)).json()
+      },
     },
-    async streamToken() {
-      return (await this.get("/stream-token")).text()
+    self: {
+      ...createBase(f, `${apiBase}/self`),
+      async followers(): Promise<{ username: string; displayName: string }[]> {
+        return (await this.get(`/followers`)).json()
+      },
+      async following(): Promise<{ username: string; displayName: string }[]> {
+        return (await this.get(`/following`)).json()
+      },
     },
     auth: {
-      ...createBase(f, "/api/v1/auth"),
+      ...createBase(f, `${apiBase}/auth`),
       async available(username: string) {
         return (await this.get(`/available/${encodeURIComponent(username)}`)).status === 200
       },
@@ -90,16 +116,8 @@ export function serverWithFetch(f: typeof window.fetch) {
           cookieStore.delete("session_token")
           return null
         }
-        const { username, displayName, avatarUrl, colour, streamToken, roles } =
-          await response.json()
-        return {
-          username,
-          displayName,
-          avatar: avatarUrl,
-          colour,
-          streamToken,
-          roles,
-        } satisfies User
+        const { username, displayName, colour, streamToken, roles } = await response.json()
+        return { username, displayName, colour, streamToken, roles } satisfies User
       },
       async login(username: string, password: string) {
         await this.postJSON("/login", { username, password }).then(async (response) => {
@@ -150,22 +168,26 @@ export function serverWithFetch(f: typeof window.fetch) {
 
 export const server = serverWithFetch(fetch)
 
-export const colours = [
-  tailwindColours.red,
-  tailwindColours.orange,
-  tailwindColours.amber,
-  tailwindColours.yellow,
-  tailwindColours.lime,
-  tailwindColours.green,
-  tailwindColours.emerald,
-  tailwindColours.teal,
-  tailwindColours.cyan,
-  tailwindColours.sky,
-  tailwindColours.blue,
-  tailwindColours.indigo,
-  tailwindColours.violet,
-  tailwindColours.purple,
-  tailwindColours.fuchsia,
-  tailwindColours.pink,
-  tailwindColours.rose,
-].map((color) => color["500"])
+export const coloursByShade = (
+  shade: "50" | "100" | "200" | "300" | "400" | "500" | "600" | "700" | "800" | "900" | "950",
+) =>
+  [
+    tailwindColours.red,
+    tailwindColours.orange,
+    tailwindColours.amber,
+    tailwindColours.yellow,
+    tailwindColours.lime,
+    tailwindColours.green,
+    tailwindColours.emerald,
+    tailwindColours.teal,
+    tailwindColours.cyan,
+    tailwindColours.sky,
+    tailwindColours.blue,
+    tailwindColours.indigo,
+    tailwindColours.violet,
+    tailwindColours.purple,
+    tailwindColours.fuchsia,
+    tailwindColours.pink,
+    tailwindColours.rose,
+  ].map((color) => color[shade])
+export const colours = coloursByShade(500)

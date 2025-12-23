@@ -5,5 +5,7 @@ import type { LayoutLoad } from "./$types"
 export const ssr = false
 
 export const load: LayoutLoad = async ({ fetch }) => {
-  userContext.user = await serverWithFetch(fetch).auth.user()
+  const server = serverWithFetch(fetch)
+  userContext.user = await server.auth.user()
+  return { following: await server.self.following() }
 }

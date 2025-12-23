@@ -29,12 +29,6 @@
   } from "$lib/components/ui/dropdown-menu"
   import { userContext } from "$lib/context.svelte"
   import UserItem from "$lib/components/UserItem.svelte"
-  import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-  } from "$lib/components/ui/tooltip"
   import { goto } from "$app/navigation"
   import { resolve } from "$app/paths"
   import { IsMobile } from "$lib/hooks/is-mobile.svelte"
@@ -65,32 +59,22 @@
       <SidebarGroup>
         <SidebarGroupLabel>Account</SidebarGroupLabel>
         <SidebarGroupContent>
-          <TooltipProvider>
-            <SidebarMenu>
-              {#each tabs as { icon: Icon, label, value, description } (label)}
-                <Tooltip>
-                  <TooltipTrigger
-                    class="flex items-center gap-2"
-                    onclick={() => {
-                      tab = value
-                    }}
-                  >
-                    {#snippet child({ props })}
-                      <SidebarMenuItem>
-                        <SidebarMenuButton isActive={tab === value} {...props}>
-                          <Icon />
-                          {label}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    {/snippet}
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {description}
-                  </TooltipContent>
-                </Tooltip>
-              {/each}
-            </SidebarMenu>
-          </TooltipProvider>
+          <SidebarMenu>
+            {#each tabs as { icon: Icon, label, value, description } (label)}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={tab === value}
+                  tooltipContent={description}
+                  onclick={() => {
+                    tab = value
+                  }}
+                >
+                  <Icon />
+                  {label}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            {/each}
+          </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>

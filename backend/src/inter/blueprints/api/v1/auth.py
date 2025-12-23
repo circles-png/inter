@@ -65,7 +65,6 @@ async def user():
             "username": user.username,
             "displayName": user.display_name,
             "colour": user.colour,
-            "avatarUrl": f"{request.host_url}api/v1/avatar/{user.username}" if users.avatar(user) else None,
             "streamToken": user.stream_token,
             "roles": user.roles,
         }

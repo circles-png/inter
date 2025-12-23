@@ -1,3 +1,5 @@
-export function match(username) {
-  return /^@[a-z0-9_]{4,32}$/.test(username)
+import type { ParamMatcher } from "@sveltejs/kit"
+
+export const match: ParamMatcher = (param) => {
+  return param
 }

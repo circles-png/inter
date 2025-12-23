@@ -2,7 +2,7 @@
   import UserItem from "../../lib/components/UserItem.svelte"
 
   import Logo from "$lib/components/logo.svelte"
-  import { AvatarFallback, Avatar } from "$lib/components/ui/avatar"
+  import { AvatarFallback, Avatar, AvatarImage } from "$lib/components/ui/avatar"
   import { Button } from "$lib/components/ui/button"
   import type { ButtonSize } from "$lib/components/ui/button"
   import { ItemActions } from "$lib/components/ui/item"
@@ -24,15 +24,19 @@
   import { userContext } from "$lib/context.svelte"
   import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
+  import { server } from "$lib/utils.svelte.js"
+  import { resolve } from "$app/paths"
 
-  const { children } = $props()
+  const { children, data } = $props()
 </script>
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
     <SidebarHeader class="overflow-hidden">
       <div class="flex gap-4 items-center min-w-0">
-        <Logo class="shrink-0" />
+        <a href={resolve("/")}>
+          <Logo class="shrink-0" />
+        </a>
         <UserItem>
           <ItemActions>
             <Button variant="secondary" size="icon" href="/settings">
@@ -47,13 +51,27 @@
         <SidebarGroupLabel>Following</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            {#each { length: 3 }}
+            {#each data.following as followee (followee.username)}
               <SidebarMenuItem>
                 <SidebarMenuButton size="lg">
-                  <Avatar class="*:rounded-lg size-8">
-                    <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
-                  </Avatar>
-                  Streamer
+                  {#snippet child({ props })}
+                    <a
+                      href={resolve("/(main)/@[username=user]", { username: followee.username })}
+                      {...props}
+                    >
+                      <Avatar class="*:rounded-lg size-8">
+                        <AvatarImage
+                          src={server.user.avatar(followee.username)}
+                          alt="User avatar"
+                        />
+                        <AvatarFallback
+                          ><Logo class="fill-muted-foreground size-6" /></AvatarFallback
+                        >
+                      </Avatar>
+                      {followee.displayName}
+                      <span class="text-muted-foreground">@{followee.username}</span>
+                    </a>
+                  {/snippet}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             {/each}
