@@ -18,19 +18,7 @@
 
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.streamer)
-  let content = $state({
-    creator: {
-      id: 1,
-      username: "Viewer",
-      avatar: "http://picsum.photos/200",
-      colour: "#aaf",
-      roles: [],
-    },
-    title: "Sample Stream",
-    game: "Sample Game",
-    viewerCount: 1234,
-    duration: "12:34:56",
-  })
+  let { title, game, start, viewers } = $derived(data.stream)
 
   let messages = $state<Message[]>([])
   let emotes = $derived(data.emotes)
@@ -39,6 +27,7 @@
   let suggestions = $state<[string, [string, boolean]][]>([])
   let video: null | HTMLVideoElement = $state(null)
   let stream: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
+  let elapsed = $state("")
 
   function handleChatMessage(event: MessageEvent) {
     let data:
@@ -61,7 +50,7 @@
     }
   }
 
-  onMount(async () => {
+  onMount(() => {
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     })
@@ -93,6 +82,8 @@
     }
 
     const connect = async () => {
+      invalidateAll()
+      if (connection.signalingState === "stable") return
       const answer = await (
         await fetch(`${apiBase}/stream/${username}/rx`, {
           method: "POST",
@@ -146,8 +137,27 @@
       }
     }
 
-    const offer = await connection.createOffer()
-    await connection.setLocalDescription(offer)
+    connection.createOffer().then((offer) => {
+      connection.setLocalDescription(offer)
+    })
+
+    const interval = setInterval(() => {
+      elapsed = start
+        ? new Date(Date.now() - start).toLocaleTimeString("en-GB", {
+            hour12: false,
+            timeZone: "UTC",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        : ""
+    }, 1000)
+
+    return () => {
+      ws.close()
+      connection.close()
+      clearInterval(interval)
+    }
   })
 
   const updateSuggestions = () => {
@@ -201,20 +211,22 @@
             </Avatar>
             <div class="flex flex-col">
               <div class="font-bold text-base">{displayName || `@${username}`}</div>
-              <div>{content.title}</div>
-              <div class="text-muted-foreground">{content.game}</div>
+              <div>{title}</div>
+              <div class="text-muted-foreground">{game}</div>
             </div>
           </div>
-          <div class="flex flex-col text-red-400 font-mono text-xs">
-            <div class="flex gap-2 items-center">
-              <User class="h-4" />
-              {content.viewerCount}
+          {#if viewers && elapsed}
+            <div class="flex flex-col text-red-400 font-mono text-xs">
+              <div class="flex gap-2 items-center">
+                <User class="h-4" />
+                {viewers}
+              </div>
+              <div class="flex gap-2 items-center">
+                <Timer class="h-4" />
+                {elapsed}
+              </div>
             </div>
-            <div class="flex gap-2 items-center">
-              <Timer class="h-4" />
-              {content.duration}
-            </div>
-          </div>
+          {/if}
         </div>
       </div>
     </ScrollArea>
@@ -363,8 +375,9 @@
                     event.preventDefault()
                     suggest()
                   }
-                } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                } else if (event.key === "Escape") {
                   event.preventDefault()
+                  suggestions = []
                 }
               }}
               onfocus={() => (focused = true)}

@@ -73,7 +73,9 @@ export function serverWithFetch(f: typeof window.fetch) {
       avatar(username: string) {
         return this.resolve(`/${encodeURIComponent(username)}/avatar`)
       },
-      async user(username: string): Promise<{ displayName: string; colour: number }> {
+      async user(
+        username: string,
+      ): Promise<{ displayName: string; colour: number; following: number; followers: number }> {
         return (await this.get(`/${encodeURIComponent(username)}`)).json()
       },
       async follow(username: string) {
@@ -87,6 +89,14 @@ export function serverWithFetch(f: typeof window.fetch) {
       },
       async following(username: string): Promise<number> {
         return (await this.get(`/${encodeURIComponent(username)}/following`)).json()
+      },
+      async stream(
+        username: string,
+      ): Promise<{ title: string; game: string; start: number | null; viewers: number | null }> {
+        return (await this.get(`/${encodeURIComponent(username)}/stream`)).json()
+      },
+      streamPreview(username: string) {
+        return this.resolve(`/${encodeURIComponent(username)}/stream/preview`)
       },
     },
     self: {

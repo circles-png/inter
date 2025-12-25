@@ -5,5 +5,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
   return {
     emotes: await server.emotes(),
     streamer: { ...(await server.user.user(params.username)), username: params.username },
+    stream: await server.user.stream(params.username),
   }
 }

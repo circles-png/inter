@@ -1,5 +1,5 @@
 from asyncio import Queue, create_task, gather
-from datetime import datetime
+from datetime import datetime, timezone
 from http.client import CREATED, OK
 import json
 from aiortc import (
@@ -37,6 +37,7 @@ async def start_stream():
         RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
     )
     user.stream.connection = connection
+    user.stream.start = datetime.now(timezone.utc).timestamp()
 
     @connection.on("connectionstatechange")
     async def _():
@@ -55,6 +56,8 @@ async def start_stream():
                     track.stop()
             await connection.close()
             user.stream.connection = None
+            user.stream.start = None
+            user.stream.clients = []
 
     @connection.on("datachannel")
     def _():
@@ -229,6 +232,7 @@ async def _(username: str):
     stream.clients.append(client)
     print(client.connection.getTransceivers())
     for transceiver in client.connection.getTransceivers():
+        transceiver.direction = "sendonly"
         if transceiver.kind == "video":
             transceiver.setCodecPreferences(
                 [
@@ -245,12 +249,12 @@ async def _(username: str):
                     if codec.name == "PCMU"
                 ]
             )
-    for sender in client.connection.getSenders():
         for track in stream.tracks:
-            new_track = stream.relay.subscribe(track)
-            client.tracks.append(new_track)
-            if sender.track.kind == new_track.kind:
-                sender.replaceTrack(new_track)
+            if transceiver.sender.kind == track.kind:
+                new_track = stream.relay.subscribe(track)
+                client.tracks.append(new_track)
+                transceiver.sender.replaceTrack(new_track)
+                break
     answer = await client.connection.createAnswer()
     await client.connection.setLocalDescription(answer)
 

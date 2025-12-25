@@ -22,6 +22,8 @@ class User:
         colour: int,
         salt: str,
         password_hash: bytes,
+        stream_title: str,
+        stream_game: str,
         roles: list[int],
     ) -> None:
         self._id = user_id
@@ -34,6 +36,8 @@ class User:
         self.roles: list[int] = roles
 
         self.stream: Stream = Stream()
+        self.stream.title = stream_title
+        self.stream.game = stream_game
 
     @staticmethod
     def from_session() -> "User":
@@ -162,6 +166,38 @@ class User:
 
         users.reload()
 
+    @property
+    def stream_title(self) -> str | None:
+        return self.stream.title
+
+    @stream_title.setter
+    def stream_title(self, title: str | None) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set stream_title = ? where id = ?",
+                (title, self.id),
+            )
+
+        users.reload()
+
+    @property
+    def stream_game(self) -> str | None:
+        return self.stream.game
+
+    @stream_game.setter
+    def stream_game(self, game: str | None) -> None:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set stream_game = ? where id = ?",
+                (game, self.id),
+            )
+
+        users.reload()
+
     def set_avatar(self, avatar_bytes: bytes | None) -> None:
         from inter.common import users
 
@@ -243,9 +279,32 @@ class User:
 
         return [user for user in users.users if user.id in follower_ids]
 
+    def reload(
+        self,
+        username: str,
+        display_name: str,
+        stream_token: str,
+        colour: int,
+        salt: str,
+        password_hash: bytes,
+        stream_title: str,
+        stream_game: str,
+        roles: list[int],
+    ) -> None:
+        self._username = username
+        self._display_name = display_name
+        self._stream_token = stream_token
+        self._colour = colour
+        self._salt = salt
+        self._password_hash = password_hash
+        self.stream.title = stream_title
+        self.stream.game = stream_game
+        self.roles = roles
+
 
 class Users:
     def __init__(self) -> None:
+        self.users = []
         self.reload()
 
     def find_by_token(self, token: str) -> User | None:
@@ -272,7 +331,7 @@ class Users:
             cursor.execute(
                 """
                     select
-                        users.id, username, display_name, stream_token, colour, salt, password_hash,
+                        users.id, username, display_name, stream_token, colour, salt, password_hash, stream_title, stream_game,
                         group_concat(roles.id, ' ')
                     from
                         users
@@ -284,17 +343,7 @@ class Users:
                         users.id
                 """
             )
-            self.users = [
-                User(
-                    id,
-                    username,
-                    display_name,
-                    stream_token,
-                    colour,
-                    salt,
-                    password_hash,
-                    roles.split(" ") if roles else [],
-                )
+            if self.users:
                 for (
                     id,
                     username,
@@ -303,9 +352,52 @@ class Users:
                     colour,
                     salt,
                     password_hash,
+                    stream_title,
+                    stream_game,
                     roles,
-                ) in cursor.fetchall()
-            ]
+                ) in cursor.fetchall():
+                    roles = [int(role) for role in roles.split(" ")] if roles else []
+                    user = self.find_by_id(id)
+                    if not user:
+                        continue
+                    user.reload(
+                        username,
+                        display_name,
+                        stream_token,
+                        colour,
+                        salt,
+                        password_hash,
+                        stream_title,
+                        stream_game,
+                        roles,
+                    )
+            else:
+                self.users = [
+                    User(
+                        id,
+                        username,
+                        display_name,
+                        stream_token,
+                        colour,
+                        salt,
+                        password_hash,
+                        stream_title,
+                        stream_game,
+                        [int(role) for role in roles.split(" ")] if roles else [],
+                    )
+                    for (
+                        id,
+                        username,
+                        display_name,
+                        stream_token,
+                        colour,
+                        salt,
+                        password_hash,
+                        stream_title,
+                        stream_game,
+                        roles,
+                    ) in cursor.fetchall()
+                ]
 
     def add(self, username: str, display_name: str, password: str) -> int:
         from inter.common import COLOUR_COUNT
