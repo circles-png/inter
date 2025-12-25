@@ -9,14 +9,68 @@ users = Users()
 
 try:
     emotes = {
-        emote[
-            "name"
-        ]: f"http:{emote['data']['host']['url']}/{emote['data']['host']['files'][1]['name']}"
+        emote["name"]: (
+            next(
+                image["url"]
+                for image in emote["emote"]["images"]
+                if image["url"].endswith("2x.webp")
+            ),
+            emote["emote"]["flags"]["zeroWidth"],
+        )
         for emote in [
-            *requests.get(
-                f"https://7tv.io/v3/emote-sets/{environ["EMOTE_SET"]}"
-            ).json()["emotes"],
-            *requests.get(f"https://7tv.io/v3/emote-sets/global").json()["emotes"],
+            *requests.post(
+                f"https://7tv.io/v4/gql",
+                json={
+                    "query": """
+                        query Emotes($set: Id!){
+                            emoteSets {
+                                emoteSet(id: $set) {
+                                    emotes {
+                                        items {
+                                            name: alias
+                                            emote {
+                                                flags {
+                                                    zeroWidth: defaultZeroWidth
+                                                }
+                                                images {
+                                                    url
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    """,
+                    "variables": {"set": environ["EMOTE_SET"]},
+                },
+            ).json()["data"]["emoteSets"]["emoteSet"]["emotes"]["items"],
+            *requests.post(
+                f"https://7tv.io/v4/gql",
+                json={
+                    "query": """
+                        {
+                            emoteSets {
+                                global {
+                                    emotes {
+                                        items {
+                                            name: alias
+                                            emote {
+                                                flags {
+                                                    zeroWidth: defaultZeroWidth
+                                                }
+                                                images {
+                                                    url
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    """
+                },
+            ).json()["data"]["emoteSets"]["global"]["emotes"]["items"],
         ]
     }
 

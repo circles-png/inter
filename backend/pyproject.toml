@@ -3,8 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = ""
 authors = [{ name = "Matthew Li", email = "matthew.li10@education.nsw.gov.au" }]
-readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "python-dotenv (>=1.2.1,<2.0.0)",
     "quart[dotenv] (>=0.20.0,<0.21.0)",

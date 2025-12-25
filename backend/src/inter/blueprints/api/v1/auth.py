@@ -102,7 +102,7 @@ async def login():
 async def update():
     user = User.from_session()
     data = await request.get_json()
-    username = data.get("username")
+    username: str | None = data.get("username")
     if username and username != user.username:
         if not users.available(username):
             return quart.Response(f"'{username}' is not available.", status=CONFLICT)
@@ -118,11 +118,11 @@ async def update():
             )
         user.username = username
 
-    display_name = data.get("displayName")
+    display_name: str | None = data.get("displayName")
     if display_name is not None and display_name != user.display_name:
-        if len(display_name) > 32:
+        if len(display_name.encode()) > 32:
             return quart.Response(
-                "Choose a display name with at most 32 characters.",
+                "Choose a shorter display name.",
                 status=BAD_REQUEST,
             )
         user.display_name = display_name

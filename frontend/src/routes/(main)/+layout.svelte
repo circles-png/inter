@@ -60,7 +60,11 @@
                 <SidebarMenuItem>
                   <SidebarMenuButton size="lg">
                     {#snippet tooltipContent()}
-                      {followee.displayName} (@{followee.username})
+                      {#if followee.displayName}
+                        {followee.displayName} (@{followee.username})
+                      {:else}
+                        @{followee.username}
+                      {/if}
                     {/snippet}
                     {#snippet child({ props })}
                       <a
@@ -76,8 +80,10 @@
                             ><Logo class="fill-muted-foreground size-6" /></AvatarFallback
                           >
                         </Avatar>
-                        {followee.displayName}
-                        <span class="text-muted-foreground">@{followee.username}</span>
+                        {followee.displayName || `@${followee.username}`}
+                        {#if followee.displayName}
+                          <span class="text-muted-foreground">@{followee.username}</span>
+                        {/if}
                       </a>
                     {/snippet}
                   </SidebarMenuButton>

@@ -25,8 +25,10 @@
         <AvatarFallback class="bg-muted" />
       </Avatar>
       <div class="flex flex-col grow">
-        <div class="font-bold">{data.displayName}</div>
-        <div class="text-sm text-muted-foreground">@{username}</div>
+        <div class="font-bold">{data.displayName || `@${username}`}</div>
+        {#if data.displayName}
+          <div class="text-sm text-muted-foreground">@{username}</div>
+        {/if}
       </div>
       {#if user && username != user.username}
         {#if following.some((following) => following.username == username)}

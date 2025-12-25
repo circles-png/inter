@@ -27,11 +27,11 @@
 <Field>
   <FieldLabel>Your token</FieldLabel>
   <InputGroup>
-    <InputGroupInput disabled value={await token} class="overflow-scroll" />
+    <InputGroupInput readonly value={token} class="overflow-scroll" />
     <InputGroupAddon align="inline-end">
       <InputGroupButton>
         {#snippet child({ props })}
-          <CopyButton text={await token} {...props}>Copy</CopyButton>
+          <CopyButton text={token} {...props}>Copy</CopyButton>
         {/snippet}
       </InputGroupButton>
     </InputGroupAddon>

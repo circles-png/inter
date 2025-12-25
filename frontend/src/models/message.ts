@@ -1,5 +1,6 @@
-import type { User } from "./user"
-import type { Emote } from "./emote"
-
-export type Fragment = ({ type: Emote } & Emote) | { type: "text"; text: string; name: string }
-export type Message = { time: string; message: Fragment[]; user: User }
+export type Emote = { name: string; url: string; zeroWidth: boolean }
+export type Fragment =
+  | ({ type: "emote" } & Emote)
+  | { type: "emote-stack"; emotes: Emote[] }
+  | { type: "text"; text: string }
+export type Message = { time: Date; fragments: Fragment[]; username: string; colour: number }

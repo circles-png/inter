@@ -1,5 +1,5 @@
 from hashlib import sha256
-from http.client import GONE, UNAUTHORIZED
+from http.client import NOT_FOUND, UNAUTHORIZED
 from os import environ
 from random import choice, randint
 import sqlite3
@@ -33,7 +33,7 @@ class User:
         self._password_hash = password_hash
         self.roles: list[int] = roles
 
-        self.stream: Stream | None = None
+        self.stream: Stream = Stream()
 
     @staticmethod
     def from_session() -> "User":
@@ -47,7 +47,7 @@ class User:
             return abort(UNAUTHORIZED)
         user = users.find_by_id(session.user)
         if not user:
-            return abort(GONE)
+            return abort(NOT_FOUND)
         return user
 
     @property

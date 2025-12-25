@@ -1,3 +1,4 @@
+import type { Fragment } from "../models/message"
 import type { User } from "../models/user"
 import tailwindColours from "tailwindcss/colors"
 
@@ -64,12 +65,15 @@ export function serverWithFetch(f: typeof window.fetch) {
     async random() {
       return (await this.get("/random")).text()
     },
+    async emotes(): Promise<{ [key: string]: [string, boolean] }> {
+      return (await this.get("/emotes")).json() // TODO cache these
+    },
     user: {
       ...createBase(f, `${apiBase}/user`),
       avatar(username: string) {
         return this.resolve(`/${encodeURIComponent(username)}/avatar`)
       },
-      async user(username: string): { displayName: string; colour: number } {
+      async user(username: string): Promise<{ displayName: string; colour: number }> {
         return (await this.get(`/${encodeURIComponent(username)}`)).json()
       },
       async follow(username: string) {
@@ -196,3 +200,59 @@ export const coloursByShade = (
     tailwindColours.rose,
   ].map((color) => color[shade])
 export const colours = coloursByShade(500)
+
+export function parseMessage(
+  message: string,
+  emotes: { [key: string]: [string, boolean] },
+): Fragment[] {
+  const fragments = message.matchAll(/\S+|\s/gy).map(([match]) => {
+    if (/^\s*$/y.test(match)) {
+      return { type: "text" as const, text: match }
+    }
+    const emote = emotes[match]
+    if (emote) {
+      const [url, zeroWidth] = emote
+      return { type: "emote" as const, name: match, url, zeroWidth }
+    }
+    return { type: "text" as const, text: match }
+  })
+  const result = []
+  const currentEmoteStack = []
+  while (true) {
+    const next = fragments.next()
+    if (!next.value) break
+    switch (next.value.type) {
+      case "text":
+        if (currentEmoteStack.length && /^\s*$/y.test(next.value.text)) {
+          break
+        }
+        if (currentEmoteStack.length == 1) {
+          result.push(currentEmoteStack[0])
+        } else if (currentEmoteStack.length > 1) {
+          result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
+        }
+        currentEmoteStack.splice(0)
+        result.push(next.value)
+        break
+      case "emote":
+        if (next.value.zeroWidth) {
+          currentEmoteStack.push(next.value)
+        } else {
+          if (currentEmoteStack.length == 1) {
+            result.push(currentEmoteStack[0])
+          } else if (currentEmoteStack.length > 1) {
+            result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
+          }
+          currentEmoteStack.splice(0)
+          currentEmoteStack.push(next.value)
+        }
+        break
+    }
+  }
+  if (currentEmoteStack.length == 1) {
+    result.push(currentEmoteStack[0])
+  } else if (currentEmoteStack.length > 1) {
+    result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
+  }
+  return result
+}
