@@ -3,4 +3,6 @@ export type Fragment =
   | ({ type: "emote" } & Emote)
   | { type: "emote-stack"; emotes: Emote[] }
   | { type: "text"; text: string }
-export type Message = { time: Date; fragments: Fragment[]; username: string; colour: number }
+export type Message =
+  | { type: "system"; fragments: Fragment[] }
+  | { type: "message"; time: Date; fragments: Fragment[]; username: string; colour: number }

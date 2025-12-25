@@ -41,15 +41,24 @@
   let stream: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
 
   function handleChatMessage(event: MessageEvent) {
-    let data: { time: number; message: string; username: string; colour: number } = JSON.parse(
-      event.data,
-    )
-    messages.push({
-      time: new Date(data.time),
-      username: data.username,
-      fragments: parseMessage(data.message, emotes),
-      colour: data.colour,
-    })
+    let data:
+      | { type: "system"; message: string }
+      | { type: "message"; time: number; message: string; username: string; colour: number } =
+      JSON.parse(event.data)
+    switch (data.type) {
+      case "system":
+        messages.push({ type: "system", fragments: parseMessage(data.message, emotes) })
+        break
+      case "message":
+        messages.push({
+          type: "message",
+          time: new Date(data.time),
+          username: data.username,
+          fragments: parseMessage(data.message, emotes),
+          colour: data.colour,
+        })
+        break
+    }
   }
 
   onMount(async () => {
@@ -83,16 +92,28 @@
       if (video) video.srcObject = event.streams[0]
     }
 
+    const connect = async () => {
+      const answer = await (
+        await fetch(`${apiBase}/stream/${username}/rx`, {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: connection.localDescription!.sdp,
+        })
+      ).text()
+      await connection.setRemoteDescription(
+        new RTCSessionDescription({ sdp: answer, type: "answer" }),
+      )
+    }
+
     const ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
-    // await new Promise((resolve) => (ws.onopen = resolve))
     ws.onmessage = async (event) => {
       const data = JSON.parse(event.data)
       console.log(data)
-      // switch (data.type) {
-      //   case "stream_started":
-      //     await connect()
-      //     break
-      // }
+      switch (data.type) {
+        case "stream_started":
+          await connect()
+          break
+      }
     }
 
     connection.onicegatheringstatechange = () => {
@@ -120,19 +141,7 @@
             }),
           )
         }
-        const connect = (connection.onnegotiationneeded = async () => {
-          console.log("onnegotiationneeded")
-          const answer = await (
-            await fetch(`${apiBase}/stream/${username}/rx`, {
-              method: "POST",
-              headers: { "Content-Type": "application/sdp" },
-              body: connection.localDescription!.sdp,
-            })
-          ).text()
-          await connection.setRemoteDescription(
-            new RTCSessionDescription({ sdp: answer, type: "answer" }),
-          )
-        })
+        connection.onnegotiationneeded = connect
         connect()
       }
     }
@@ -213,60 +222,77 @@
   <ResizableHandle />
   <ResizablePane class="flex flex-col *:grow" defaultSize={30}>
     <div class="flex flex-col gap-4">
-      <div class="flex flex-col p-4 grow">
-        {#each messages as { fragments, colour, time, username }, index (index)}
-          <div class="flex gap-2 items-center">
-            <span class="text-xs text-muted-foreground">{time.toLocaleTimeString()}</span>
+      <div class="flex flex-col py-4 grow">
+        {#each messages as message, index (index)}
+          {@const { type, fragments } = message}
+          {@const { time, username, colour } =
+            message.type === "message" ? message : { time: undefined, username: "", colour: -1 }}
+          <div
+            class={[
+              "flex gap-2 items-center px-4",
+              data.user
+                && fragments.some(
+                  (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
+                )
+                && "bg-red-500/20 border-l-4 border-red-500",
+              type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
+            ]}
+          >
+            <span class="text-xs text-muted-foreground">
+              {time?.toLocaleTimeString()}
+            </span>
             <p class="wrap-anywhere">
-              <HoverCard>
-                <HoverCardTrigger
-                  style="color: {colours[colour]}"
-                  href={resolve("/(main)/@[username=user]", { username })}
-                >
-                  {username}:
-                </HoverCardTrigger>
-                <HoverCardContent class="flex gap-4 items-center">
-                  <Avatar class="size-12">
-                    <AvatarImage src={server.user.avatar(username)} alt={username} />
-                    <AvatarFallback class="bg-muted" />
-                  </Avatar>
-                  <div class="flex flex-col grow">
-                    <div class="font-bold">{(await server.user.user(username)).displayName}</div>
-                    <div class="text-sm text-muted-foreground">@{username}</div>
-                  </div>
-                  {#if data.user && username != data.user.username}
-                    {#if data.following.some((following) => following.username == username)}
-                      <Button
-                        onclick={async () => {
-                          server.user.unfollow(username)
-                          await invalidateAll()
-                        }}
-                      >
-                        Unfollow
-                      </Button>
-                    {:else}
-                      <Button
-                        onclick={async () => {
-                          server.user.follow(username)
-                          await invalidateAll()
-                        }}
-                      >
-                        Follow
-                      </Button>
+              {#if type === "message"}
+                <HoverCard>
+                  <HoverCardTrigger
+                    style="color: {colours[colour]}"
+                    href={resolve("/(main)/@[username=user]", { username })}
+                  >
+                    {username}:
+                  </HoverCardTrigger>
+                  <HoverCardContent class="flex gap-4 items-center">
+                    <Avatar class="size-12">
+                      <AvatarImage src={server.user.avatar(username)} alt={username} />
+                      <AvatarFallback class="bg-muted" />
+                    </Avatar>
+                    <div class="flex flex-col grow">
+                      <div class="font-bold">{(await server.user.user(username)).displayName}</div>
+                      <div class="text-sm text-muted-foreground">@{username}</div>
+                    </div>
+                    {#if data.user && username != data.user.username}
+                      {#if data.following.some((following) => following.username == username)}
+                        <Button
+                          onclick={async () => {
+                            server.user.unfollow(username)
+                            await invalidateAll()
+                          }}
+                        >
+                          Unfollow
+                        </Button>
+                      {:else}
+                        <Button
+                          onclick={async () => {
+                            server.user.follow(username)
+                            await invalidateAll()
+                          }}
+                        >
+                          Follow
+                        </Button>
+                      {/if}
                     {/if}
-                  {/if}
-                </HoverCardContent>
-              </HoverCard>
+                  </HoverCardContent>
+                </HoverCard>
+              {/if}
               {#each fragments as fragment, index (index)}
                 {#if fragment.type === "text"}
                   <span>{fragment.text}</span>
                 {:else if fragment.type === "emote"}
                   <Tooltip>
                     <TooltipTrigger class="inline-flex items-center">
-                      <img class="inline-block h-6" src={fragment.url} alt={fragment.name} />
+                      <img class="inline-block h-5" src={fragment.url} alt={fragment.name} />
                     </TooltipTrigger>
                     <TooltipContent class="flex flex-col items-center">
-                      <img class="inline-block h-12" src={fragment.url} alt={fragment.name} />
+                      <img class="inline-block h-10" src={fragment.url} alt={fragment.name} />
                       {fragment.name}
                     </TooltipContent>
                   </Tooltip>
@@ -276,7 +302,7 @@
                       <span class="inline-grid place-items-center h-6">
                         {#each fragment.emotes as emote, index (index)}
                           <img
-                            class="inline-block h-6 col-start-1 row-start-1"
+                            class="inline-block h-5 col-start-1 row-start-1"
                             src={emote.url}
                             alt={emote.name}
                           />
@@ -289,7 +315,7 @@
                       >
                         {#each fragment.emotes as emote, index (index)}
                           <img
-                            class="h-12 absolute w-30 object-contain"
+                            class="h-10 absolute w-30 object-contain"
                             src={emote.url}
                             alt={emote.name}
                             style:transform={`translateZ(${index * 40}px)`}

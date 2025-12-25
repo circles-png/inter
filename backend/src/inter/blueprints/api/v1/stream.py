@@ -154,6 +154,9 @@ async def _(username: str):
             RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
         )
     )
+    await client.connection.setRemoteDescription(
+        RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
+    )
 
     @client.connection.on("connectionstatechange")
     async def _():
@@ -174,10 +177,8 @@ async def _(username: str):
         channel.send(
             json.dumps(
                 {
-                    "time": int(datetime.now().timestamp()),
+                    "type": "system",
                     "message": "Connected to chat! Hola",
-                    "username": "[System]",
-                    "colour": 0,
                 }
             )
         )
@@ -192,6 +193,7 @@ async def _(username: str):
                     client.chat.send(
                         json.dumps(
                             {
+                                "type": "message",
                                 "time": int(datetime.now().timestamp()),
                                 "message": data,
                                 "username": viewer.username,
@@ -225,10 +227,7 @@ async def _(username: str):
         print(f"track")
 
     stream.clients.append(client)
-    for track in stream.tracks:
-        new_track = stream.relay.subscribe(track)
-        client.connection.addTransceiver(new_track, "sendonly")
-        client.tracks.append(new_track)
+    print(client.connection.getTransceivers())
     for transceiver in client.connection.getTransceivers():
         if transceiver.kind == "video":
             transceiver.setCodecPreferences(
@@ -246,12 +245,15 @@ async def _(username: str):
                     if codec.name == "PCMU"
                 ]
             )
-
-    await client.connection.setRemoteDescription(
-        RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
-    )
+    for sender in client.connection.getSenders():
+        for track in stream.tracks:
+            new_track = stream.relay.subscribe(track)
+            client.tracks.append(new_track)
+            if sender.track.kind == new_track.kind:
+                sender.replaceTrack(new_track)
     answer = await client.connection.createAnswer()
     await client.connection.setLocalDescription(answer)
+
     return quart.Response(
         answer.sdp,
         status=CREATED,
