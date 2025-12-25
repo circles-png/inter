@@ -55,7 +55,11 @@
         },
         "dependsOn": [
           "frontend dev"
-        ]
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        }
       },
       {
         "label": "frontend dev",
@@ -80,7 +84,7 @@
         "label": "stop",
         "command": "echo ${input:terminate}",
         "type": "shell"
-      },
+      }
     ],
     "inputs": [
       {

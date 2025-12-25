@@ -173,7 +173,7 @@
           style:background-color={colours[colour]}
           bind:this={video}
         ></video>
-        {#if video && video.srcObject && video.muted}
+        {#if video}
           <Button
             class="absolute top-6 left-6"
             variant="secondary"
@@ -307,59 +307,61 @@
           </div>
         {/each}
       </div>
-      <div class="p-4 relative">
-        <ButtonGroup class="w-full">
-          <Input
-            bind:ref={chatInput}
-            oninput={updateSuggestions}
-            onselectionchange={updateSuggestions}
-            onkeydown={(event) => {
-              const suggest = () => {
-                chatInput!.setRangeText(
-                  suggestions[0][0] + " ",
-                  chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
-                  chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ")
-                    + chatInput!.selectionEnd!
-                    + 1,
-                  "end",
-                )
-                suggestions = []
-              }
-              if (event.key === "Enter") {
-                if (suggestions.length) {
-                  suggest()
-                } else {
-                  sendMessage()
+      {#if data.user}
+        <div class="p-4 relative">
+          <ButtonGroup class="w-full">
+            <Input
+              bind:ref={chatInput}
+              oninput={updateSuggestions}
+              onselectionchange={updateSuggestions}
+              onkeydown={(event) => {
+                const suggest = () => {
+                  chatInput!.setRangeText(
+                    suggestions[0][0] + " ",
+                    chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
+                    chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ")
+                      + chatInput!.selectionEnd!
+                      + 1,
+                    "end",
+                  )
+                  suggestions = []
                 }
-              } else if (event.key === "Tab") {
-                if (suggestions.length) {
+                if (event.key === "Enter") {
+                  if (suggestions.length) {
+                    suggest()
+                  } else {
+                    sendMessage()
+                  }
+                } else if (event.key === "Tab") {
+                  if (suggestions.length) {
+                    event.preventDefault()
+                    suggest()
+                  }
+                } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault()
-                  suggest()
                 }
-              } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                event.preventDefault()
-              }
-            }}
-            onfocus={() => (focused = true)}
-            onblur={() => (focused = false)}
-          />
-          <Button size="icon" variant="secondary" onclick={sendMessage}>
-            <Send />
-          </Button>
-        </ButtonGroup>
-        <div class="absolute bottom-full left-0 px-4">
-          {#if suggestions.length && focused}
-            <div class="flex flex-col *:justify-start bg-card rounded-md border shadow-md p-2">
-              {#each suggestions as [name, [url]], index (index)}
-                <div class="flex gap-2 p-2 rounded-md" class:bg-accent={index === 0}>
-                  <img class="inline-block h-6" src={url} alt={name} />
-                  <span>{name}</span>
-                </div>
-              {/each}
-            </div>
-          {/if}
+              }}
+              onfocus={() => (focused = true)}
+              onblur={() => (focused = false)}
+            />
+            <Button size="icon" variant="secondary" onclick={sendMessage}>
+              <Send />
+            </Button>
+          </ButtonGroup>
+          <div class="absolute bottom-full left-0 px-4">
+            {#if suggestions.length && focused}
+              <div class="flex flex-col *:justify-start bg-card rounded-md border shadow-md p-2">
+                {#each suggestions as [name, [url]], index (index)}
+                  <div class="flex gap-2 p-2 rounded-md" class:bg-accent={index === 0}>
+                    <img class="inline-block h-6" src={url} alt={name} />
+                    <span>{name}</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </div>
-      </div>
+      {/if}
     </div>
   </ResizablePane>
 </ResizablePaneGroup>

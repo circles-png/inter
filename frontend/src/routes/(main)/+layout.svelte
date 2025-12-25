@@ -76,9 +76,9 @@
                             src={server.user.avatar(followee.username)}
                             alt={followee.username}
                           />
-                          <AvatarFallback
-                            ><Logo class="fill-muted-foreground size-6" /></AvatarFallback
-                          >
+                          <AvatarFallback>
+                            <Logo class="fill-muted-foreground size-6" />
+                          </AvatarFallback>
                         </Avatar>
                         {followee.displayName || `@${followee.username}`}
                         {#if followee.displayName}

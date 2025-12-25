@@ -13,6 +13,7 @@ from aiortc import (
 )
 import aiortc
 import aiortc.codecs
+import aiortc.contrib.media
 from quart import abort, request, websocket
 import quart
 
@@ -45,14 +46,15 @@ async def start_stream():
                 await queue.put({"type": "stream_started"})
 
         if connection.connectionState == "closed":
-            await connection.close()
             for track in user.stream.tracks:
                 track.stop()
-            user.stream.connection = None
             user.stream.tracks = []
+            user.stream.relay = aiortc.contrib.media.MediaRelay()
             for client in user.stream.clients:
                 for track in client.tracks:
                     track.stop()
+            await connection.close()
+            user.stream.connection = None
 
     @connection.on("datachannel")
     def _():
@@ -107,7 +109,6 @@ async def ws(username: str):
     async def rx():
         while True:
             data = await websocket.receive_json()
-            print(data)
             match data["type"]:
                 case "candidate":
                     if stream.connection:
@@ -124,7 +125,6 @@ async def ws(username: str):
     async def tx():
         while True:
             message = await queue.get()
-            print(message)
             await websocket.send_json(message)
 
     await gather(create_task(rx()), create_task(tx()))
@@ -155,18 +155,16 @@ async def _(username: str):
         )
     )
 
-    if stream:
-
-        @client.connection.on("connectionstatechange")
-        async def _():
-            print(f"connectionstatechange", client.connection.connectionState)
-            if client.connection.connectionState == "closed":
-                await client.connection.close()
-                if client.chat:
-                    client.chat.close()
-                for track in client.tracks:
-                    track.stop()
-                stream.clients.remove(client)
+    @client.connection.on("connectionstatechange")
+    async def _():
+        print(f"connectionstatechange", client.connection.connectionState)
+        if client.connection.connectionState == "closed":
+            await client.connection.close()
+            if client.chat:
+                client.chat.close()
+            for track in client.tracks:
+                track.stop()
+            stream.clients.remove(client)
 
     @client.connection.on("datachannel")
     def _(channel: RTCDataChannel):
