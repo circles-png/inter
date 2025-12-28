@@ -28,6 +28,7 @@
   let video: null | HTMLVideoElement = $state(null)
   let rtc: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
   let elapsed = $state("")
+  let messagesContainer: null | HTMLDivElement = $state(null)
 
   function handleChatMessage(event: MessageEvent) {
     let data:
@@ -50,6 +51,12 @@
     }
   }
 
+  $effect(() => {
+    if (messagesContainer && messages.length) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
+    }
+  })
+
   onMount(() => {
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -68,46 +75,53 @@
       }
     }
 
-    connection.onicecandidate = (event) => {
-      if (!event.candidate) return
-      ws.send(
-        JSON.stringify({
-          type: "candidate",
-          candidate: {
-            candidate: event.candidate.candidate,
-            sdpMid: event.candidate.sdpMid,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-          },
-        }),
-      )
-    }
-    connection.ontrack = (event) => {
-      if (video) video.srcObject = event.streams[0]
-    }
-    connection.onnegotiationneeded = async () => {
-      console.log("onnegotiationneeded")
-      const offer = await connection.createOffer()
-      await connection.setLocalDescription(offer)
+    messages.push({
+      type: "system",
+      fragments: parseMessage("Connecting to chat... Waiting", emotes),
+    })
 
-      ws.send(
-        JSON.stringify({
-          type: "connect",
-          sdp: connection.localDescription,
-          token: await (await fetch(`${apiBase}/stream/auth`, { credentials: "include" })).text(),
-        }),
-      )
-    }
-    connection.oniceconnectionstatechange = () => {
-      console.log("oniceconnectionstatechange", connection.iceConnectionState)
-    }
-    connection.onsignalingstatechange = () => {
-      console.log("onsignalingstatechange", connection.signalingState)
-    }
+    ws.onopen = () => {
+      connection.onicecandidate = (event) => {
+        if (!event.candidate) return
+        ws.send(
+          JSON.stringify({
+            type: "candidate",
+            candidate: {
+              candidate: event.candidate.candidate,
+              sdpMid: event.candidate.sdpMid,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+            },
+          }),
+        )
+      }
+      connection.ontrack = (event) => {
+        if (video) video.srcObject = event.streams[0]
+      }
+      connection.onnegotiationneeded = async () => {
+        console.log("onnegotiationneeded")
+        const offer = await connection.createOffer()
+        await connection.setLocalDescription(offer)
 
-    const chat = connection.createDataChannel("chat")
-    chat.onmessage = handleChatMessage
+        ws.send(
+          JSON.stringify({
+            type: "connect",
+            sdp: connection.localDescription,
+            token: await (await fetch(`${apiBase}/stream/auth`, { credentials: "include" })).text(),
+          }),
+        )
+      }
+      connection.oniceconnectionstatechange = () => {
+        console.log("oniceconnectionstatechange", connection.iceConnectionState)
+      }
+      connection.onsignalingstatechange = () => {
+        console.log("onsignalingstatechange", connection.signalingState)
+      }
 
-    rtc = { chat, connection }
+      const chat = connection.createDataChannel("chat")
+      chat.onmessage = handleChatMessage
+
+      rtc = { chat, connection }
+    }
 
     const interval = setInterval(() => {
       elapsed = start
@@ -200,162 +214,162 @@
     </ScrollArea>
   </ResizablePane>
   <ResizableHandle />
-  <ResizablePane class="flex flex-col *:grow" defaultSize={30}>
-    <div class="flex flex-col gap-4">
-      <div class="flex flex-col py-4 grow">
-        {#each messages as message, index (index)}
-          {@const { type, fragments } = message}
-          {@const { time, username, colour } =
-            message.type === "message" ? message : { time: undefined, username: "", colour: -1 }}
-          <div
-            class={[
-              "flex gap-2 items-center px-4",
-              data.user
-                && fragments.some(
-                  (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
-                )
-                && "bg-red-500/20 border-l-4 border-red-500",
-              type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
-            ]}
-          >
-            <span class="text-xs text-muted-foreground">
-              {time?.toLocaleTimeString()}
-            </span>
-            <p class="wrap-anywhere">
-              {#if type === "message"}
-                <HoverCard>
-                  <HoverCardTrigger
-                    style="color: {colours[colour]}"
-                    href={resolve("/(main)/@[username=user]", { username })}
-                  >
-                    {username}:
-                  </HoverCardTrigger>
-                  <HoverCardContent class="flex gap-4 items-center">
-                    <Avatar class="size-12">
-                      <AvatarImage src={server.user.avatar(username)} alt={username} />
-                      <AvatarFallback class="bg-muted" />
-                    </Avatar>
-                    <div class="flex flex-col grow">
-                      <div class="font-bold">{(await server.user.user(username)).displayName}</div>
-                      <div class="text-sm text-muted-foreground">@{username}</div>
-                    </div>
-                    {#if data.user && username != data.user.username}
-                      {#if data.following.some((following) => following.username == username)}
-                        <Button
-                          onclick={async () => {
-                            server.user.unfollow(username)
-                            await invalidateAll()
-                          }}
-                        >
-                          Unfollow
-                        </Button>
-                      {:else}
-                        <Button
-                          onclick={async () => {
-                            server.user.follow(username)
-                            await invalidateAll()
-                          }}
-                        >
-                          Follow
-                        </Button>
-                      {/if}
-                    {/if}
-                  </HoverCardContent>
-                </HoverCard>
-              {/if}
-              {#each fragments as fragment, index (index)}
-                {#if fragment.type === "text"}
-                  <span>{fragment.text}</span>
-                {:else if fragment.type === "emote"}
-                  <Tooltip>
-                    <TooltipTrigger class="inline-flex items-center">
-                      <img class="inline-block h-5" src={fragment.url} alt={fragment.name} />
-                    </TooltipTrigger>
-                    <TooltipContent class="flex flex-col items-center">
-                      <img class="inline-block h-10" src={fragment.url} alt={fragment.name} />
-                      {fragment.name}
-                    </TooltipContent>
-                  </Tooltip>
-                {:else if fragment.type === "emote-stack"}
-                  <Tooltip>
-                    <TooltipTrigger class="inline-flex items-center">
-                      <span class="inline-grid place-items-center h-6">
-                        {#each fragment.emotes as emote, index (index)}
-                          <img
-                            class="inline-block h-5 col-start-1 row-start-1"
-                            src={emote.url}
-                            alt={emote.name}
-                          />
-                        {/each}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent class="flex flex-col items-center">
-                      <div
-                        class="-rotate-x-20 rotate-y-40 relative h-30 w-60 perspective-distant transform-3d"
+  <ResizablePane class="flex flex-col" defaultSize={30}>
+    <div class="flex flex-col py-4 grow overflow-auto" bind:this={messagesContainer}>
+      {#each messages as message, index (index)}
+        {@const { type, fragments } = message}
+        {@const { time, username, colour } =
+          message.type === "message" ? message : { time: undefined, username: "", colour: -1 }}
+        <div
+          class={[
+            "flex gap-2 items-center px-4",
+            data.user
+              && fragments.some(
+                (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
+              )
+              && "bg-red-500/20 border-l-4 border-red-500",
+            type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
+          ]}
+        >
+          <span class="text-xs text-muted-foreground">
+            {time?.toLocaleTimeString()}
+          </span>
+          <p class="wrap-anywhere">
+            {#if type === "message"}
+              <HoverCard>
+                <HoverCardTrigger
+                  style="color: {colours[colour]}"
+                  href={resolve("/(main)/@[username=user]", { username })}
+                >
+                  {username}:
+                </HoverCardTrigger>
+                <HoverCardContent class="flex gap-4 items-center">
+                  <Avatar class="size-12">
+                    <AvatarImage src={server.user.avatar(username)} alt={username} />
+                    <AvatarFallback class="bg-muted" />
+                  </Avatar>
+                  <div class="flex flex-col grow">
+                    <div class="font-bold">{(await server.user.user(username)).displayName}</div>
+                    <div class="text-sm text-muted-foreground">@{username}</div>
+                  </div>
+                  {#if data.user && username != data.user.username}
+                    {#if data.following.some((following) => following.username == username)}
+                      <Button
+                        onclick={async () => {
+                          server.user.unfollow(username)
+                          await invalidateAll()
+                        }}
                       >
-                        {#each fragment.emotes as emote, index (index)}
-                          <img
-                            class="h-10 absolute w-30 object-contain"
-                            src={emote.url}
-                            alt={emote.name}
-                            style:transform={`translateZ(${index * 40}px)`}
-                          />
-                        {/each}
-                      </div>
+                        Unfollow
+                      </Button>
+                    {:else}
+                      <Button
+                        onclick={async () => {
+                          server.user.follow(username)
+                          await invalidateAll()
+                        }}
+                      >
+                        Follow
+                      </Button>
+                    {/if}
+                  {/if}
+                </HoverCardContent>
+              </HoverCard>
+            {/if}
+            {#each fragments as fragment, index (index)}
+              {#if fragment.type === "text"}
+                <span>{fragment.text}</span>
+              {:else if fragment.type === "emote"}
+                <Tooltip>
+                  <TooltipTrigger class="inline-flex items-center">
+                    <img class="inline-block h-5" src={fragment.url} alt={fragment.name} />
+                  </TooltipTrigger>
+                  <TooltipContent class="flex flex-col items-center">
+                    <img class="inline-block h-10" src={fragment.url} alt={fragment.name} />
+                    {fragment.name}
+                  </TooltipContent>
+                </Tooltip>
+              {:else if fragment.type === "emote-stack"}
+                <Tooltip>
+                  <TooltipTrigger class="inline-flex items-center">
+                    <span class="inline-grid place-items-center h-6">
                       {#each fragment.emotes as emote, index (index)}
-                        <span>{emote.name}</span>
+                        <img
+                          class="inline-block h-5 col-start-1 row-start-1"
+                          src={emote.url}
+                          alt={emote.name}
+                        />
                       {/each}
-                    </TooltipContent>
-                  </Tooltip>
-                {/if}
-              {/each}
-            </p>
-          </div>
-        {/each}
-      </div>
-      {#if data.user}
-        <div class="p-4 relative">
-          <ButtonGroup class="w-full">
-            <Input
-              bind:ref={chatInput}
-              oninput={updateSuggestions}
-              onselectionchange={updateSuggestions}
-              onkeydown={(event) => {
-                const suggest = () => {
-                  chatInput!.setRangeText(
-                    suggestions[0][0] + " ",
-                    chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
-                    chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ")
-                      + chatInput!.selectionEnd!
-                      + 1,
-                    "end",
-                  )
-                  suggestions = []
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent class="flex flex-col items-center">
+                    <div
+                      class="-rotate-x-20 rotate-y-40 relative h-30 w-60 perspective-distant transform-3d"
+                    >
+                      {#each fragment.emotes as emote, index (index)}
+                        <img
+                          class="h-10 absolute w-30 object-contain"
+                          src={emote.url}
+                          alt={emote.name}
+                          style:transform={`translateZ(${index * 40}px)`}
+                        />
+                      {/each}
+                    </div>
+                    {#each fragment.emotes as emote, index (index)}
+                      <span>{emote.name}</span>
+                    {/each}
+                  </TooltipContent>
+                </Tooltip>
+              {/if}
+            {/each}
+          </p>
+        </div>
+      {/each}
+    </div>
+    {#if data.user}
+      <div class="p-4 relative">
+        <ButtonGroup class="w-full">
+          <Input
+            bind:ref={chatInput}
+            oninput={updateSuggestions}
+            onselectionchange={updateSuggestions}
+            onkeydown={(event) => {
+              const suggest = () => {
+                chatInput!.setRangeText(
+                  suggestions[0][0] + " ",
+                  chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
+                  chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ")
+                    + chatInput!.selectionEnd!
+                    + 1,
+                  "end",
+                )
+                suggestions = []
+              }
+              if (event.key === "Enter") {
+                if (suggestions.length) {
+                  suggest()
+                } else {
+                  sendMessage()
                 }
-                if (event.key === "Enter") {
-                  if (suggestions.length) {
-                    suggest()
-                  } else {
-                    sendMessage()
-                  }
-                } else if (event.key === "Tab") {
-                  if (suggestions.length) {
-                    event.preventDefault()
-                    suggest()
-                  }
-                } else if (event.key === "Escape") {
+              } else if (event.key === "Tab") {
+                if (suggestions.length) {
                   event.preventDefault()
-                  suggestions = []
+                  suggest()
                 }
-              }}
-              onfocus={() => (focused = true)}
-              onblur={() => (focused = false)}
-            />
-            <Button size="icon" variant="secondary" onclick={sendMessage}>
-              <Send />
-            </Button>
-          </ButtonGroup>
-          <div class="absolute bottom-full left-0 px-4">
+              } else if (event.key === "Escape") {
+                event.preventDefault()
+                suggestions = []
+              }
+            }}
+            onfocus={() => (focused = true)}
+            onblur={() => (focused = false)}
+          />
+          <Button size="icon" variant="secondary" onclick={sendMessage}>
+            <Send />
+          </Button>
+        </ButtonGroup>
+        <div class="absolute bottom-full left-0 px-4">
+          {#key suggestions}
             {#if suggestions.length && focused}
               <div class="flex flex-col *:justify-start bg-card rounded-md border shadow-md p-2">
                 {#each suggestions as [name, [url]], index (index)}
@@ -366,9 +380,9 @@
                 {/each}
               </div>
             {/if}
-          </div>
+          {/key}
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
   </ResizablePane>
 </ResizablePaneGroup>
