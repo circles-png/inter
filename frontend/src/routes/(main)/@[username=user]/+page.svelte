@@ -38,7 +38,7 @@
         </div>
       </div>
       <Button href={resolve("/(main)/@[username=user]/watch", { username })}>
-        {#if stream.viewers}
+        {#if stream.start}
           Watch
         {:else}
           Chat
@@ -68,7 +68,7 @@
       {/if}
     </div>
   {/key}
-  {#if stream.viewers}
+  {#if stream.start}
     <div class="flex flex-col gap-4">
       <div class="font-bold text-lg">Currently Streaming</div>
       <a class="flex flex-col gap-2" href={resolve("/(main)/@[username=user]/watch", { username })}>

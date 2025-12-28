@@ -26,7 +26,7 @@
   let focused = $state(false)
   let suggestions = $state<[string, [string, boolean]][]>([])
   let video: null | HTMLVideoElement = $state(null)
-  let stream: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
+  let rtc: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
   let elapsed = $state("")
 
   function handleChatMessage(event: MessageEvent) {
@@ -54,22 +54,48 @@
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     })
-    connection.addTransceiver("video", { direction: "recvonly" })
-    connection.addTransceiver("audio", { direction: "recvonly" })
-    const chat = connection.createDataChannel("chat")
-    stream = { chat, connection }
-    chat.onmessage = handleChatMessage
 
-    const candidates: RTCIceCandidate[] = []
-    connection.onicecandidate = async (event) => {
-      console.log("onicecandidate", event.candidate)
-      if (event.candidate) candidates.push(event.candidate)
+    const ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
+    ws.onmessage = async (event) => {
+      const data: { type: "stream_started" } | { type: "connect"; sdp: RTCSessionDescriptionInit } =
+        JSON.parse(event.data)
+
+      if (data.type == "stream_started") {
+        connection.restartIce()
+      } else if (data.type == "connect") {
+        const answer = data.sdp
+        await connection.setRemoteDescription(answer)
+      }
     }
-    connection.onconnectionstatechange = async () => {
-      console.log("onconnectionstatechange", connection.connectionState)
+
+    connection.onicecandidate = (event) => {
+      if (!event.candidate) return
+      ws.send(
+        JSON.stringify({
+          type: "candidate",
+          candidate: {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+          },
+        }),
+      )
     }
-    connection.ondatachannel = (event) => {
-      console.log("ondatachannel", event)
+    connection.ontrack = (event) => {
+      if (video) video.srcObject = event.streams[0]
+    }
+    connection.onnegotiationneeded = async () => {
+      console.log("onnegotiationneeded")
+      const offer = await connection.createOffer()
+      await connection.setLocalDescription(offer)
+
+      ws.send(
+        JSON.stringify({
+          type: "connect",
+          sdp: connection.localDescription,
+          token: await (await fetch(`${apiBase}/stream/auth`, { credentials: "include" })).text(),
+        }),
+      )
     }
     connection.oniceconnectionstatechange = () => {
       console.log("oniceconnectionstatechange", connection.iceConnectionState)
@@ -77,69 +103,11 @@
     connection.onsignalingstatechange = () => {
       console.log("onsignalingstatechange", connection.signalingState)
     }
-    connection.ontrack = (event) => {
-      if (video) video.srcObject = event.streams[0]
-    }
 
-    const connect = async () => {
-      invalidateAll()
-      if (connection.signalingState === "stable") return
-      const answer = await (
-        await fetch(`${apiBase}/stream/${username}/rx`, {
-          method: "POST",
-          headers: { "Content-Type": "application/sdp" },
-          body: connection.localDescription!.sdp,
-        })
-      ).text()
-      await connection.setRemoteDescription(
-        new RTCSessionDescription({ sdp: answer, type: "answer" }),
-      )
-    }
+    const chat = connection.createDataChannel("chat")
+    chat.onmessage = handleChatMessage
 
-    const ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
-    ws.onmessage = async (event) => {
-      const data = JSON.parse(event.data)
-      console.log(data)
-      switch (data.type) {
-        case "stream_started":
-          await connect()
-          break
-      }
-    }
-
-    connection.onicegatheringstatechange = () => {
-      console.log("onicegatheringstatechange", connection.iceGatheringState)
-      if (connection.iceGatheringState === "complete") {
-        for (const candidate of candidates) {
-          if (!candidate.component) continue
-          ws.send(
-            JSON.stringify({
-              type: "candidate",
-              candidate: {
-                component: { rtp: 1, rtcp: 2 }[candidate.component],
-                foundation: candidate.foundation,
-                ip: candidate.address,
-                port: candidate.port,
-                priority: candidate.priority,
-                protocol: candidate.protocol,
-                type: candidate.type,
-                relatedAddress: candidate.relatedAddress,
-                relatedPort: candidate.relatedPort,
-                sdpMid: candidate.sdpMid,
-                sdpMLineIndex: candidate.sdpMLineIndex,
-                tcpType: candidate.tcpType,
-              },
-            }),
-          )
-        }
-        connection.onnegotiationneeded = connect
-        connect()
-      }
-    }
-
-    connection.createOffer().then((offer) => {
-      connection.setLocalDescription(offer)
-    })
+    rtc = { chat, connection }
 
     const interval = setInterval(() => {
       elapsed = start
@@ -173,8 +141,8 @@
 
   const sendMessage = () => {
     if (!chatInput?.value) return
-    if (!stream) return
-    stream.chat.send(chatInput.value)
+    if (!rtc) return
+    rtc.chat.send(chatInput.value)
     chatInput.value = ""
     suggestions = []
   }
@@ -215,7 +183,7 @@
               <div class="text-muted-foreground">{game}</div>
             </div>
           </div>
-          {#if viewers && elapsed}
+          {#if elapsed}
             <div class="flex flex-col text-red-400 font-mono text-xs">
               <div class="flex gap-2 items-center">
                 <User class="h-4" />

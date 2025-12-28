@@ -103,10 +103,12 @@ async def stream_preview(username: str):
     stream = user.stream
     if not stream:
         return quart.Response(status=NOT_FOUND)
-    track = next((track for track in stream.tracks if track.kind == "video"), None)
+    track = stream.tracks[0] if stream.tracks else None
     if not track:
         return quart.Response(status=NOT_FOUND)
-    frame = await stream.relay.subscribe(track).recv()
+    new_track = stream.relay.subscribe(track)
+    frame = await new_track.recv()
+    new_track.stop()
 
     async def send_video_frame(frame: VideoFrame) -> quart.Response:
         image: PIL.Image.Image = frame.to_image()  # type: ignore

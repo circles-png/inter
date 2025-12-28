@@ -18,7 +18,6 @@ async def random():
 async def _():
     return quart.jsonify({name: url for name, url in emotes.items()})
 
-
 api.register_blueprint(stream)
 api.register_blueprint(auth)
 api.register_blueprint(user)

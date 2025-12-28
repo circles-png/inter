@@ -1,7 +1,12 @@
 from asyncio import Queue, create_task, gather
-from datetime import datetime, timezone
-from http.client import CREATED, OK
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import hmac
+from http.client import CREATED, NOT_FOUND, OK, UNAUTHORIZED
 import json
+from os import environ
+import secrets
+from typing import Any
 from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
@@ -12,7 +17,8 @@ from aiortc import (
     RTCSessionDescription,
 )
 import aiortc
-import aiortc.codecs
+from aiortc.rtcrtpreceiver import RemoteStreamTrack
+from aiortc.sdp import candidate_from_sdp
 import aiortc.contrib.media
 from quart import abort, request, websocket
 import quart
@@ -39,6 +45,8 @@ async def start_stream():
     user.stream.connection = connection
     user.stream.start = datetime.now(timezone.utc).timestamp()
 
+    tracks: list[None | RemoteStreamTrack] = [None, None]
+
     @connection.on("connectionstatechange")
     async def _():
         print(f"tx connectionstatechange", connection.connectionState)
@@ -47,9 +55,9 @@ async def start_stream():
                 await queue.put({"type": "stream_started"})
 
         if connection.connectionState == "closed":
-            for track in user.stream.tracks:
+            for track in user.stream.tracks or []:
                 track.stop()
-            user.stream.tracks = []
+            user.stream.tracks = None
             user.stream.relay = aiortc.contrib.media.MediaRelay()
             for client in user.stream.clients:
                 for track in client.tracks:
@@ -84,9 +92,16 @@ async def start_stream():
         print(f"tx signalingstatechange", connection.signalingState)
 
     @connection.on("track")
-    def _(t: MediaStreamTrack):
-        print(f"tx track")
-        user.stream.tracks.append(t)
+    def _(track: RemoteStreamTrack):
+        print(f"tx track", track)
+        nonlocal tracks
+        if track.kind == "video":
+            tracks[0] = track
+        elif track.kind == "audio":
+            tracks[1] = track
+        if all(tracks):
+            user.stream.tracks = (tracks[0], tracks[1])  # type: ignore
+            print("Stream tracks set:", user.stream.tracks)
 
     await connection.setRemoteDescription(
         RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
@@ -98,39 +113,6 @@ async def start_stream():
         content_type="application/sdp",
         headers={"Location": f"{request.host_url}api/v1/stream/{user.username}/tx"},
     )
-
-
-@stream.websocket("/<string:username>/ws")
-async def ws(username: str):
-    streamer = users.find_by_username(username)
-    if not streamer:
-        return quart.Response(status=404)
-    stream = streamer.stream
-    queue: Queue[dict[str, str]] = Queue(maxsize=10)
-    stream.client_ws_queues.append(queue)
-
-    async def rx():
-        while True:
-            data = await websocket.receive_json()
-            match data["type"]:
-                case "candidate":
-                    if stream.connection:
-                        await stream.connection.addIceCandidate(
-                            RTCIceCandidate(**data["candidate"])
-                        )
-                    for client in stream.clients:
-                        await client.connection.addIceCandidate(
-                            RTCIceCandidate(**data["candidate"])
-                        )
-                case _:
-                    pass
-
-    async def tx():
-        while True:
-            message = await queue.get()
-            await websocket.send_json(message)
-
-    await gather(create_task(rx()), create_task(tx()))
 
 
 @stream.route("/<string:username>/tx", methods=["POST", "PATCH"])
@@ -145,121 +127,170 @@ async def stream_tx_delete(username: str):
     return quart.Response(status=OK)
 
 
-@stream.route("/<string:username>/rx", methods=["POST", "PATCH"])
-async def _(username: str):
+@stream.route("/auth", methods=["GET"])
+async def ws_auth():
+    if "session_token" not in request.cookies:
+        return quart.Response(status=UNAUTHORIZED)
+    user = User.from_session()
+    data = (
+        f"{user.username}\n{int((datetime.now() + timedelta(seconds=10)).timestamp())}"
+    )
+    signature = hmac.new(
+        environ["STREAM_WS_AUTH_KEY"].encode(),
+        data.encode(),
+        sha256,
+    ).hexdigest()
+    return quart.Response(f"{data}\n{signature}")
+
+
+@stream.websocket("/<string:username>/ws")
+async def ws(username: str):
     streamer = users.find_by_username(username)
     if not streamer:
-        return abort(404)
+        return quart.Response(status=NOT_FOUND)
     stream = streamer.stream
-    viewer = User.from_session() if "session_token" in request.cookies else None
-    client = Client(
-        RTCPeerConnection(
-            RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
-        )
-    )
-    await client.connection.setRemoteDescription(
-        RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
-    )
+    tx_queue: Queue[dict[str, Any]] = Queue(maxsize=10)
+    stream.client_ws_queues.append(tx_queue)
+    client = None
 
-    @client.connection.on("connectionstatechange")
-    async def _():
-        print(f"connectionstatechange", client.connection.connectionState)
-        if client.connection.connectionState == "closed":
-            await client.connection.close()
-            if client.chat:
-                client.chat.close()
-            for track in client.tracks:
-                track.stop()
-            stream.clients.remove(client)
+    async def rx():
+        nonlocal client
+        while True:
+            data = await websocket.receive_json()
+            match data["type"]:
+                case "connect":
+                    if data["token"]:
+                        username, expire, signature = data["token"].splitlines()
+                        if datetime.now().timestamp() < float(
+                            expire
+                        ) and secrets.compare_digest(
+                            hmac.new(
+                                environ["STREAM_WS_AUTH_KEY"].encode(),
+                                f"{username}\n{expire}".encode(),
+                                sha256,
+                            ).hexdigest(),
+                            signature,
+                        ):
+                            viewer = users.find_by_username(username)
+                        else:
+                            viewer = None
+                    else:
+                        viewer = None
+                    new_client = Client(
+                        RTCPeerConnection(
+                            RTCConfiguration(
+                                [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
+                            )
+                        ),
+                        viewer.username if viewer else None,
+                    )
+                    connection = new_client.connection
+                    stream.clients.append(new_client)
 
-    @client.connection.on("datachannel")
-    def _(channel: RTCDataChannel):
-        print(f"datachannel", channel)
-        client.chat = channel
+                    @connection.on("connectionstatechange")
+                    async def _():
+                        print(f"connectionstatechange", connection.connectionState)
+                        if connection.connectionState == "closed":
+                            await connection.close()
+                            if new_client.chat:
+                                new_client.chat.close()
+                            for track in new_client.tracks:
+                                track.stop()
+                            if new_client in stream.clients:
+                                stream.clients.remove(new_client)
 
-        channel.send(
-            json.dumps(
-                {
-                    "type": "system",
-                    "message": "Connected to chat! Hola",
-                }
-            )
-        )
+                    @connection.on("datachannel")
+                    def _(channel: RTCDataChannel):
+                        print(f"datachannel", channel)
+                        new_client.chat = channel
 
-        @channel.on("message")
-        def _(data: str):
-            if not viewer:
-                return
-            print("message", data)
-            for client in stream.clients:
-                if client.chat:
-                    client.chat.send(
-                        json.dumps(
-                            {
-                                "type": "message",
-                                "time": int(datetime.now().timestamp()),
-                                "message": data,
-                                "username": viewer.username,
-                                "colour": viewer.colour,
-                            }
+                        channel.send(
+                            json.dumps(
+                                {
+                                    "type": "system",
+                                    "message": "Connected to chat! Hola",
+                                }
+                            )
                         )
+
+                        @channel.on("message")
+                        def _(data: str):
+                            if not viewer:
+                                return
+                            print("message", data)
+                            for client in stream.clients:
+                                if client.chat:
+                                    client.chat.send(
+                                        json.dumps(
+                                            {
+                                                "type": "message",
+                                                "time": int(datetime.now().timestamp()),
+                                                "message": data,
+                                                "username": viewer.username,
+                                                "colour": viewer.colour,
+                                            }
+                                        )
+                                    )
+
+                    @connection.on("iceconnectionstatechange")
+                    def _():
+                        print(
+                            f"iceconnectionstatechange",
+                            connection.iceConnectionState,
+                        )
+
+                    @connection.on("negotiationneeded")
+                    def _():
+                        print(f"negotiationneeded")
+
+                    @connection.on("signalingstatechange")
+                    def _():
+                        print(f"signalingstatechange", connection.signalingState)
+
+                    @connection.on("track")
+                    def _(track: MediaStreamTrack):
+                        print(f"track")
+
+                    await connection.setRemoteDescription(
+                        RTCSessionDescription(data["sdp"]["sdp"], data["sdp"]["type"])
                     )
 
-    @client.connection.on("icecandidate")
-    def _(candidate: RTCIceCandidate):
-        print(f"icecandidate", candidate)
+                    if stream.tracks:
+                        video, audio = stream.tracks
+                        connection.addTrack(stream.relay.subscribe(video))
+                        connection.addTrack(stream.relay.subscribe(audio))
 
-    @client.connection.on("icecandidateerror")
-    def _():
-        print(f"icecandidateerror")
+                    answer = await connection.createAnswer()
+                    await connection.setLocalDescription(answer)
 
-    @client.connection.on("iceconnectionstatechange")
-    def _():
-        print(f"iceconnectionstatechange", client.connection.iceConnectionState)
+                    await tx_queue.put(
+                        {
+                            "type": "connect",
+                            "sdp": {
+                                "sdp": connection.localDescription.sdp,
+                                "type": connection.localDescription.type,
+                            },
+                        }
+                    )
 
-    @client.connection.on("negotiationneeded")
-    def _():
-        print(f"negotiationneeded")
+                    client = new_client
 
-    @client.connection.on("signalingstatechange")
-    def _():
-        print(f"signalingstatechange", client.connection.signalingState)
+                case "candidate":
+                    candidate = candidate_from_sdp(data["candidate"]["candidate"])
+                    candidate.sdpMid = data["candidate"]["sdpMid"]
+                    candidate.sdpMLineIndex = data["candidate"]["sdpMLineIndex"]
+                    # if stream.connection:
+                    #     await stream.connection.addIceCandidate(
+                    #         candidate
+                    #     )
+                    if client:
+                        await client.connection.addIceCandidate(candidate)
+                case _:
+                    pass
 
-    @client.connection.on("track")
-    def _(track: MediaStreamTrack):
-        print(f"track")
+    async def tx():
+        while True:
+            message = await tx_queue.get()
+            await websocket.send_json(message)
 
-    stream.clients.append(client)
-    print(client.connection.getTransceivers())
-    for transceiver in client.connection.getTransceivers():
-        transceiver.direction = "sendonly"
-        if transceiver.kind == "video":
-            transceiver.setCodecPreferences(
-                [
-                    codec
-                    for codec in aiortc.codecs.get_capabilities("video").codecs
-                    if codec.name in ["H264", "rtx", "red", "ulpfec"]
-                ]
-            )
-        if transceiver.kind == "audio":
-            transceiver.setCodecPreferences(
-                [
-                    codec
-                    for codec in aiortc.codecs.get_capabilities("audio").codecs
-                    if codec.name == "PCMU"
-                ]
-            )
-        for track in stream.tracks:
-            if transceiver.sender.kind == track.kind:
-                new_track = stream.relay.subscribe(track)
-                client.tracks.append(new_track)
-                transceiver.sender.replaceTrack(new_track)
-                break
-    answer = await client.connection.createAnswer()
-    await client.connection.setLocalDescription(answer)
-
-    return quart.Response(
-        answer.sdp,
-        status=CREATED,
-        content_type="application/sdp",
-    )
+    await gather(create_task(rx()), create_task(tx()))
