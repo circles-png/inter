@@ -19,15 +19,56 @@
   import { server } from "$lib/utils.svelte"
   import { invalidateAll } from "$app/navigation"
   import type { User } from "../../models/user"
+  import Eye from "@lucide/svelte/icons/eye"
+  import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+  } from "$lib/components/ui/dialog"
+  import { Button, buttonVariants } from "$lib/components/ui/button"
 
   let { user }: { user: User } = $props()
+  let showToken = $state(false)
   const token = $derived(user.streamToken)
 </script>
 
 <Field>
   <FieldLabel>Your token</FieldLabel>
   <InputGroup>
-    <InputGroupInput readonly value={token} class="overflow-scroll" />
+    <InputGroupInput
+      disabled
+      readonly
+      type={showToken ? "text" : "password"}
+      value={token}
+      class="overflow-scroll"
+    />
+    <InputGroupAddon align="inline-end">
+      <Dialog>
+        <DialogTrigger>
+          <InputGroupButton>
+            <Eye />
+            View
+          </InputGroupButton>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure you want to view your stream token?</DialogTitle>
+            <DialogDescription>
+              This will reveal your stream token. Rotate it if you believe it has been compromised.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="destructive" onclick={() => (showToken = true)}>Reveal</Button>
+            <DialogClose class={buttonVariants({ variant: "default" })}>Cancel</DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </InputGroupAddon>
     <InputGroupAddon align="inline-end">
       <InputGroupButton>
         {#snippet child({ props })}
