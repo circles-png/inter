@@ -209,6 +209,32 @@ class User:
 
         users.reload()
 
+    def set_stream_title(self, title: str):
+        from inter.common import users
+
+        self.stream.title = title
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set stream_title = ? where id = ?",
+                (title, self.id),
+            )
+
+        users.reload()
+
+    def set_stream_game(self, game: str):
+        from inter.common import users
+
+        self.stream.game = game
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            db.cursor().execute(
+                "update users set stream_game = ? where id = ?",
+                (game, self.id),
+            )
+
+        users.reload()
+
     def follow(self, user: "User") -> None:
         from inter.common import users
 

@@ -26,6 +26,7 @@
   import { server } from "$lib/utils.svelte.js"
   import { resolve } from "$app/paths"
   import { invalidateAll } from "$app/navigation"
+  import SlidersVertical from "@lucide/svelte/icons/sliders-vertical"
 
   const { children, data } = $props()
 </script>
@@ -51,6 +52,25 @@
       </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarGroupLabel>Your stream</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" tooltipContent="Manage your stream">
+                {#snippet child({ props })}
+                  <a href={resolve("/(main)/dashboard")} {...props}>
+                    <div class="size-8 bg-muted p-2 rounded-md">
+                      <SlidersVertical class="size-4" />
+                    </div>
+                    Dashboard
+                  </a>
+                {/snippet}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
       {#if data.user}
         <SidebarGroup>
           <SidebarGroupLabel>Following</SidebarGroupLabel>
@@ -71,7 +91,7 @@
                         href={resolve("/(main)/@[username=user]", { username: followee.username })}
                         {...props}
                       >
-                        <Avatar class="*:rounded-lg size-8">
+                        <Avatar class="size-8">
                           <AvatarImage
                             src={server.user.avatar(followee.username)}
                             alt={followee.username}

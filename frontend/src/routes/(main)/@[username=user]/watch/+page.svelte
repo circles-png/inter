@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ResizableHandle, ResizablePane, ResizablePaneGroup } from "$lib/components/ui/resizable"
-  import { apiBase, colours, parseMessage, server } from "$lib/utils.svelte"
+  import { apiBase, colours, parseMessage, server, useElapsed } from "$lib/utils.svelte"
   import { onMount } from "svelte"
   import type { Message } from "../../../../models/message"
   import { Avatar, AvatarFallback, AvatarImage } from "$lib/components/ui/avatar"
@@ -27,7 +27,7 @@
   let suggestions = $state<[string, [string, boolean]][]>([])
   let video: null | HTMLVideoElement = $state(null)
   let rtc: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
-  let elapsed = $state("")
+  let elapsed = () => (start ? useElapsed(() => start) : null)
   let messagesContainer: null | HTMLDivElement = $state(null)
 
   function handleChatMessage(event: MessageEvent) {
@@ -123,22 +123,9 @@
       rtc = { chat, connection }
     }
 
-    const interval = setInterval(() => {
-      elapsed = start
-        ? new Date(Date.now() - start).toLocaleTimeString("en-GB", {
-            hour12: false,
-            timeZone: "UTC",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })
-        : ""
-    }, 1000)
-
     return () => {
       ws.close()
       connection.close()
-      clearInterval(interval)
     }
   })
 
@@ -197,7 +184,7 @@
               <div class="text-muted-foreground">{game}</div>
             </div>
           </div>
-          {#if elapsed}
+          {#if elapsed()}
             <div class="flex flex-col text-red-400 font-mono text-xs">
               <div class="flex gap-2 items-center">
                 <User class="h-4" />
@@ -205,7 +192,7 @@
               </div>
               <div class="flex gap-2 items-center">
                 <Timer class="h-4" />
-                {elapsed}
+                {elapsed()}
               </div>
             </div>
           {/if}

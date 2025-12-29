@@ -2,6 +2,7 @@ import type { Fragment } from "../models/message"
 import type { User } from "../models/user"
 import tailwindColours from "tailwindcss/colors"
 import { toast } from "svelte-sonner"
+import { onMount } from "svelte"
 
 function debounce<A extends unknown[]>(f: (...args: A) => unknown, ms: number) {
   let timeout: number | null = null
@@ -115,6 +116,9 @@ export function serverWithFetch(f: typeof window.fetch) {
           return []
         }
         return response.json()
+      },
+      async updateStream({ title, game }: { title?: string; game?: string }) {
+        await this.postJSON("/stream/update", { title, game })
       },
     },
     auth: {
@@ -266,4 +270,22 @@ export function parseMessage(
     result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
   }
   return result
+}
+
+export function useElapsed(start: () => number) {
+  let elapsed = $state(null)
+  onMount(() => {
+    const interval = setInterval(() => {
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity
+      elapsed = new Date(Date.now() / 1000 - start).toLocaleTimeString("en-GB", {
+        hour12: false,
+        timeZone: "UTC",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  })
+  return () => elapsed
 }

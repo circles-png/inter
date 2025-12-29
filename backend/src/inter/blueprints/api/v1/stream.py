@@ -126,7 +126,6 @@ async def stream_tx_delete(username: str):
     print("TX endpoint deleted at username:", username)
     return quart.Response(status=OK)
 
-
 @stream.route("/auth", methods=["GET"])
 async def ws_auth():
     if "session_token" not in request.cookies:
