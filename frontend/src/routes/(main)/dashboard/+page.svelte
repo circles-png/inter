@@ -77,7 +77,7 @@
             <DialogHeader>
               <DialogTitle>Stream info</DialogTitle>
               <DialogDescription>Edit</DialogDescription>
-            </DialogHeader>
+            </DialogHeader>˝
             <div class="">
               <FieldSet>
                 <FieldGroup>
@@ -90,10 +90,12 @@
                     <Input bind:value={game} />
                   </Field>
                 </FieldGroup>
-              </FieldSet>
+              </FieldSet>˝
             </div>
             <DialogFooter>
-              <DialogClose class={buttonVariants({ variant: "outline" })}>Cancel</DialogClose>
+              <DialogClose class={buttonVariants({ variant: "outline" })} type="button">
+                Cancel
+              </DialogClose>
               <Button type="submit">Save changes</Button>
             </DialogFooter>
           </form>
