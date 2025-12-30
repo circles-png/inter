@@ -136,7 +136,7 @@
       return
     }
     suggestions = Object.entries(emotes)
-      .filter(([name]) => name.startsWith(word))
+      .filter(([name]) => name.toLowerCase().startsWith(word.toLowerCase()))
       .slice(0, 5)
   }
 

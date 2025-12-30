@@ -233,34 +233,28 @@ export function parseMessage(
   })
   const result = []
   const currentEmoteStack = []
+  const drain = () => {
+    if (currentEmoteStack.length == 1) {
+      result.push(currentEmoteStack[0])
+    } else if (currentEmoteStack.length > 1) {
+      result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
+    }
+    currentEmoteStack.splice(0)
+  }
   while (true) {
     const next = fragments.next()
     if (!next.value) break
     switch (next.value.type) {
       case "text":
-        if (currentEmoteStack.length && /^\s*$/y.test(next.value.text)) {
-          break
-        }
-        if (currentEmoteStack.length == 1) {
-          result.push(currentEmoteStack[0])
-        } else if (currentEmoteStack.length > 1) {
-          result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
-        }
-        currentEmoteStack.splice(0)
+        if (currentEmoteStack.length && /^\s*$/y.test(next.value.text)) break
+        drain()
         result.push(next.value)
         break
       case "emote":
-        if (next.value.zeroWidth) {
-          currentEmoteStack.push(next.value)
-        } else {
-          if (currentEmoteStack.length == 1) {
-            result.push(currentEmoteStack[0])
-          } else if (currentEmoteStack.length > 1) {
-            result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
-          }
-          currentEmoteStack.splice(0)
-          currentEmoteStack.push(next.value)
+        if (!next.value.zeroWidth) {
+          drain()
         }
+        currentEmoteStack.push(next.value)
         break
     }
   }
