@@ -77,7 +77,7 @@
             <DialogHeader>
               <DialogTitle>Stream info</DialogTitle>
               <DialogDescription>Edit</DialogDescription>
-            </DialogHeader>˝
+            </DialogHeader>
             <div class="">
               <FieldSet>
                 <FieldGroup>
@@ -90,7 +90,7 @@
                     <Input bind:value={game} />
                   </Field>
                 </FieldGroup>
-              </FieldSet>˝
+              </FieldSet>
             </div>
             <DialogFooter>
               <DialogClose class={buttonVariants({ variant: "outline" })} type="button">
