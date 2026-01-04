@@ -3,6 +3,7 @@ import type { User } from "../models/user"
 import tailwindColours from "tailwindcss/colors"
 import { toast } from "svelte-sonner"
 import { onMount } from "svelte"
+import { DateTime } from "luxon"
 
 function debounce<A extends unknown[]>(f: (...args: A) => unknown, ms: number) {
   let timeout: number | null = null
@@ -266,18 +267,13 @@ export function parseMessage(
   return result
 }
 
-export function useElapsed(start: () => number) {
-  let elapsed = $state(null)
+export function useElapsed(start: () => number | null) {
+  const get = (start: number | null) =>
+    start ? DateTime.fromSeconds(start).diffNow().negate().toFormat("hh:mm:ss") : null
+  let elapsed: Date | null = $state(get(start()))
   onMount(() => {
     const interval = setInterval(() => {
-      // eslint-disable-next-line svelte/prefer-svelte-reactivity
-      elapsed = new Date(Date.now() / 1000 - start).toLocaleTimeString("en-GB", {
-        hour12: false,
-        timeZone: "UTC",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
+      elapsed = get(start())
     }, 1000)
     return () => clearInterval(interval)
   })

@@ -33,7 +33,7 @@
           <div class="text-sm text-muted-foreground">@{username}</div>
         {/if}
         <div class="text-sm flex gap-4">
-          <div>{profile.followers} followers</div>
+          <div>{profile.followers} {profile.followers == 1 ? "follower" : "followers"}</div>
           <div>{profile.following} following</div>
         </div>
       </div>

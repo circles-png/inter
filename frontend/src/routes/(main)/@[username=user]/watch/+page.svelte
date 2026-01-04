@@ -27,7 +27,7 @@
   let suggestions = $state<[string, [string, boolean]][]>([])
   let video: null | HTMLVideoElement = $state(null)
   let rtc: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
-  let elapsed = () => (start ? useElapsed(() => start) : null)
+  let elapsed = useElapsed(() => start)
   let messagesContainer: null | HTMLDivElement = $state(null)
 
   function handleChatMessage(event: MessageEvent) {
@@ -58,20 +58,29 @@
   })
 
   onMount(() => {
+    if (video) video.srcObject = new MediaStream()
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     })
 
-    const ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
+    let ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
     ws.onmessage = async (event) => {
-      const data: { type: "stream_started" } | { type: "connect"; sdp: RTCSessionDescriptionInit } =
-        JSON.parse(event.data)
+      const data:
+        | { type: "connect"; sdp: RTCSessionDescriptionInit }
+        | { type: "renegotiate"; sdp: RTCSessionDescriptionInit } = JSON.parse(event.data)
 
-      if (data.type == "stream_started") {
-        connection.restartIce()
-      } else if (data.type == "connect") {
+      if (data.type == "connect") {
         const answer = data.sdp
         await connection.setRemoteDescription(answer)
+        ws.send(JSON.stringify({ type: "tracks" }))
+      }
+
+      if (data.type == "renegotiate") {
+        const offer = data.sdp
+        await connection.setRemoteDescription(offer)
+        const answer = await connection.createAnswer()
+        await connection.setLocalDescription(answer)
+        ws.send(JSON.stringify({ type: "renegotiate", sdp: connection.localDescription }))
       }
     }
 
@@ -95,7 +104,10 @@
         )
       }
       connection.ontrack = (event) => {
-        if (video) video.srcObject = event.streams[0]
+        if (video && video.srcObject && video.srcObject instanceof MediaStream) {
+          video.srcObject.addTrack(event.track)
+          video.play()
+        }
       }
       connection.onnegotiationneeded = async () => {
         console.log("onnegotiationneeded")
@@ -112,6 +124,12 @@
       }
       connection.oniceconnectionstatechange = () => {
         console.log("oniceconnectionstatechange", connection.iceConnectionState)
+        if (connection.iceConnectionState === "disconnected") {
+          messages.push({
+            type: "system",
+            fragments: parseMessage("Disconnected from server!", emotes),
+          })
+        }
       }
       connection.onsignalingstatechange = () => {
         console.log("onsignalingstatechange", connection.signalingState)
@@ -154,7 +172,6 @@
     <ScrollArea>
       <div class="relative flex flex-col gap-4 p-4">
         <video
-          autoplay
           muted
           playsinline
           class="rounded-md aspect-video"

@@ -103,7 +103,7 @@ async def stream_preview(username: str):
     stream = user.stream
     if not stream:
         return quart.Response(status=NOT_FOUND)
-    track = stream.tracks[0] if stream.tracks else None
+    track = stream.video
     if not track:
         return quart.Response(status=NOT_FOUND)
     new_track = stream.relay.subscribe(track)

@@ -22,7 +22,7 @@
 
   let { data } = $props()
   const start = data.stream.start
-  let elapsed = () => (start ? useElapsed(() => start) : null)
+  let elapsed = useElapsed(() => start)
   let title = $state(data.stream.title)
   let game = $state(data.stream.game)
   let open = $state(false)
@@ -48,9 +48,9 @@
       }}
     />
   </div>
-  <ButtonGroup>
+  <div class="flex justify-between">
     <ButtonGroup>
-      {#each [[elapsed?.() ?? "-", "Session"], [data.stream.viewers ?? "-", "Viewers"], [data.followers, "Followers"]] as [value, name] (name)}
+      {#each [[elapsed() ?? "-", "Session"], [data.stream.viewers ?? "-", "Viewers"], [data.followers, "Followers"]] as [value, name] (name)}
         <Button variant="outline" class="flex flex-col gap-0 items-start py-2 px-4 h-auto w-28">
           <div class="text-base">{value}</div>
           <div class="text-muted-foreground text-xs">{name}</div>
@@ -102,5 +102,5 @@
         </DialogContent>
       </Dialog>
     </ButtonGroup>
-  </ButtonGroup>
+  </div>
 </div>

@@ -52,26 +52,26 @@
       </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <SidebarGroupLabel>Your stream</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" tooltipContent="Manage your stream">
-                {#snippet child({ props })}
-                  <a href={resolve("/(main)/dashboard")} {...props}>
-                    <div class="size-8 bg-muted p-2 rounded-md">
-                      <SlidersVertical class="size-4" />
-                    </div>
-                    Dashboard
-                  </a>
-                {/snippet}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
       {#if data.user}
+        <SidebarGroup>
+          <SidebarGroupLabel>Your stream</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton size="lg" tooltipContent="Manage your stream">
+                  {#snippet child({ props })}
+                    <a href={resolve("/(main)/dashboard")} {...props}>
+                      <div class="size-8 bg-muted p-2 rounded-md">
+                        <SlidersVertical class="size-4" />
+                      </div>
+                      Dashboard
+                    </a>
+                  {/snippet}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Following</SidebarGroupLabel>
           <SidebarGroupContent>

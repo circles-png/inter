@@ -45,19 +45,17 @@ async def start_stream():
     user.stream.connection = connection
     user.stream.start = datetime.now(timezone.utc).timestamp()
 
-    tracks: list[None | RemoteStreamTrack] = [None, None]
-
     @connection.on("connectionstatechange")
     async def _():
         print(f"tx connectionstatechange", connection.connectionState)
-        if connection.connectionState == "connected":
-            for queue in user.stream.client_ws_queues:
-                await queue.put({"type": "stream_started"})
 
         if connection.connectionState == "closed":
-            for track in user.stream.tracks or []:
-                track.stop()
-            user.stream.tracks = None
+            if user.stream.video:
+                user.stream.video.stop()
+            if user.stream.audio:
+                user.stream.audio.stop()
+            user.stream.video = None
+            user.stream.audio = None
             user.stream.relay = aiortc.contrib.media.MediaRelay()
             for client in user.stream.clients:
                 for track in client.tracks:
@@ -94,14 +92,10 @@ async def start_stream():
     @connection.on("track")
     def _(track: RemoteStreamTrack):
         print(f"tx track", track)
-        nonlocal tracks
         if track.kind == "video":
-            tracks[0] = track
+            user.stream.video = track
         elif track.kind == "audio":
-            tracks[1] = track
-        if all(tracks):
-            user.stream.tracks = (tracks[0], tracks[1])  # type: ignore
-            print("Stream tracks set:", user.stream.tracks)
+            user.stream.audio = track
 
     await connection.setRemoteDescription(
         RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
@@ -111,7 +105,10 @@ async def start_stream():
         connection.localDescription.sdp,
         status=CREATED,
         content_type="application/sdp",
-        headers={"Location": f"{request.host_url}api/v1/stream/{user.username}/tx"},
+        headers={
+            "Location": f"{request.host_url}api/v1/stream/{user.username}/tx",
+            "Link": '<stun:stun.l.google.com:19302>; rel="ice-server"',
+        },
     )
 
 
@@ -125,6 +122,7 @@ async def stream_tx(username: str):
 async def stream_tx_delete(username: str):
     print("TX endpoint deleted at username:", username)
     return quart.Response(status=OK)
+
 
 @stream.route("/auth", methods=["GET"])
 async def ws_auth():
@@ -151,9 +149,10 @@ async def ws(username: str):
     tx_queue: Queue[dict[str, Any]] = Queue(maxsize=10)
     stream.client_ws_queues.append(tx_queue)
     client = None
+    candidates: list[RTCIceCandidate] = []
 
     async def rx():
-        nonlocal client
+        nonlocal client, stream
         while True:
             data = await websocket.receive_json()
             match data["type"]:
@@ -254,13 +253,10 @@ async def ws(username: str):
                         RTCSessionDescription(data["sdp"]["sdp"], data["sdp"]["type"])
                     )
 
-                    if stream.tracks:
-                        video, audio = stream.tracks
-                        connection.addTrack(stream.relay.subscribe(video))
-                        connection.addTrack(stream.relay.subscribe(audio))
+                    await connection.setLocalDescription(await connection.createAnswer())
 
-                    answer = await connection.createAnswer()
-                    await connection.setLocalDescription(answer)
+                    for candidate in candidates:
+                        await connection.addIceCandidate(candidate)
 
                     await tx_queue.put(
                         {
@@ -278,12 +274,40 @@ async def ws(username: str):
                     candidate = candidate_from_sdp(data["candidate"]["candidate"])
                     candidate.sdpMid = data["candidate"]["sdpMid"]
                     candidate.sdpMLineIndex = data["candidate"]["sdpMLineIndex"]
-                    # if stream.connection:
-                    #     await stream.connection.addIceCandidate(
-                    #         candidate
-                    #     )
                     if client:
                         await client.connection.addIceCandidate(candidate)
+                    else:
+                        candidates.append(candidate)
+
+                case "tracks":
+                    if client:
+                        connection = client.connection
+                        for track in (stream.audio, stream.video):
+                            if not track:
+                                continue
+                            relayed = stream.relay.subscribe(track)
+                            connection.addTrack(relayed)
+                        if stream.audio or stream.video:
+                            offer = await connection.createOffer()
+                            await connection.setLocalDescription(offer)
+                            await tx_queue.put(
+                                {
+                                    "type": "renegotiate",
+                                    "sdp": {
+                                        "sdp": connection.localDescription.sdp,
+                                        "type": connection.localDescription.type,
+                                    },
+                                }
+                            )
+
+                case "renegotiate":
+                    if client:
+                        await client.connection.setRemoteDescription(
+                            RTCSessionDescription(
+                                data["sdp"]["sdp"], data["sdp"]["type"]
+                            )
+                        )
+
                 case _:
                     pass
 

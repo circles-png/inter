@@ -1,3 +1,5 @@
+from logging import getLogger
+import logging
 from pathlib import Path
 
 
@@ -15,6 +17,15 @@ def create_app():
     cors(app, allow_origin="http://localhost:5001", allow_credentials=True)
     app.register_error_handler(404, lambda _: ("", 404))
     app.register_error_handler(401, lambda _: ("", 401))
+
+    class Filter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
+            return not any(
+                path in record.getMessage()
+                for path in ["/src/", "/node_modules/", ".svelte-kit"]
+            )
+
+    getLogger("hypercorn.access").addFilter(filter=Filter())
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
