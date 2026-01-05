@@ -30,7 +30,7 @@
 
 <div class="flex flex-col p-2 gap-2 grow min-h-0">
   <div class="text-2xl font-bold">Dashboard</div>
-  <div class="border rounded-md grow min-h-0">
+  <div class="border rounded-md grow min-h-0 flex flex-col">
     <Watch
       data={{
         following: data.following,

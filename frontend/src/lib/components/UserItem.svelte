@@ -5,7 +5,6 @@
   import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "$lib/components/ui/item"
   import { server } from "$lib/utils.svelte"
   import type { Snippet } from "svelte"
-  import "../../app.css"
   import type { User } from "../../models/user"
   import { TooltipTrigger, TooltipContent, Tooltip, TooltipProvider } from "./ui/tooltip"
 

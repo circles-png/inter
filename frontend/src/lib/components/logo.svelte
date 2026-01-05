@@ -3,16 +3,10 @@
   import type { ClassValue } from "tailwind-variants"
 
   const {
-    // variant = "secondary",
     wordmark = false,
     class: classNames,
     ...props
-  }: {
-    variant?: "primary" | "secondary"
-    wordmark?: boolean
-    class?: ClassValue
-    [key: string]: unknown
-  } = $props()
+  }: { wordmark?: boolean; class?: ClassValue; [key: string]: unknown } = $props()
 </script>
 
 {#if wordmark}

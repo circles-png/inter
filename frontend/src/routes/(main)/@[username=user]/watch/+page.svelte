@@ -25,6 +25,7 @@
   } from "$lib/components/ui/dropdown-menu"
   import X from "@lucide/svelte/icons/x"
   import { cn } from "$lib/utils"
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte.js"
 
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.streamer)
@@ -40,6 +41,7 @@
   let elapsed = useElapsed(() => start)
   let messagesContainer: null | HTMLDivElement = $state(null)
   let replying: Extract<Message, { type: "message" }> | null = $state(null)
+  let isMobile = new IsMobile()
 
   function handleChatMessage(event: MessageEvent) {
     let data:
@@ -198,59 +200,134 @@
   }
 </script>
 
-<ResizablePaneGroup direction="horizontal" class="flex">
-  <ResizablePane>
-    <ScrollArea>
-      <div class="relative flex flex-col gap-4 p-4">
-        <video
-          muted
-          playsinline
-          class="rounded-md aspect-video"
-          style:background-color={colours[colour]}
-          bind:this={video}
-        ></video>
-        {#if video}
-          <Button
-            class="absolute top-6 left-6"
-            variant="secondary"
-            onclick={() => {
-              if (video) video.muted = false
-            }}
-          >
-            Unmute
-          </Button>
-        {/if}
-        <div class="flex justify-between text-sm">
-          <div class="flex gap-4">
-            <Avatar class="size-12">
-              <AvatarImage src={server.user.avatar(username)} />
-              <AvatarFallback class="bg-muted" />
-            </Avatar>
-            <div class="flex flex-col">
-              <div class="font-bold text-base">{displayName || `@${username}`}</div>
-              <div>{title}</div>
-              <div class="text-muted-foreground">{game}</div>
+{#if isMobile.current}
+  {@render stream()}
+  <div class="flex flex-col grow min-h-0">{@render chat()}</div>
+{:else}
+  <ResizablePaneGroup direction="horizontal" class="flex grow">
+    <ResizablePane minSize={50}>
+      <ScrollArea>
+        {@render stream()}
+      </ScrollArea>
+    </ResizablePane>
+    <ResizableHandle />
+    <ResizablePane
+      class="flex flex-col"
+      defaultSize={30}
+      collapsible
+      collapsedSize={0}
+      minSize={20}
+    >
+      {@render chat()}
+    </ResizablePane>
+  </ResizablePaneGroup>
+{/if}
+
+{#snippet messageContent(fragments: Fragment[])}
+  {#each fragments as fragment, index (index)}
+    {#if fragment.type === "text"}
+      <span>{fragment.text}</span>
+    {:else if fragment.type === "emote"}
+      <Tooltip>
+        <TooltipTrigger class="inline-flex items-center">
+          <img class="inline-block h-5" src={fragment.url} alt={fragment.name} />
+        </TooltipTrigger>
+        <TooltipContent class="flex flex-col items-center">
+          <img class="inline-block h-10" src={fragment.url} alt={fragment.name} />
+          {fragment.name}
+        </TooltipContent>
+      </Tooltip>
+    {:else if fragment.type === "emote-stack"}
+      <Tooltip>
+        <TooltipTrigger class="inline-flex items-center">
+          <span class="inline-grid place-items-center h-6">
+            {#each fragment.emotes as emote, index (index)}
+              <img
+                class="inline-block h-5 col-start-1 row-start-1"
+                src={emote.url}
+                alt={emote.name}
+              />
+            {/each}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent class="flex flex-col items-center">
+          <div class="-rotate-x-20 rotate-y-40 relative h-30 w-60 perspective-distant transform-3d">
+            {#each fragment.emotes as emote, index (index)}
+              <img
+                class="h-10 absolute w-30 object-contain"
+                src={emote.url}
+                alt={emote.name}
+                style:transform={`translateZ(${index * 40}px)`}
+              />
+            {/each}
+          </div>
+          {#each fragment.emotes as emote, index (index)}
+            <span>{emote.name}</span>
+          {/each}
+        </TooltipContent>
+      </Tooltip>
+    {/if}
+  {/each}
+{/snippet}
+
+{#snippet stream()}
+  <div class="flex flex-col relative md:p-2">
+    <video
+      muted
+      playsinline
+      class="aspect-video md:rounded-md"
+      style:background-color={colours[colour]}
+      bind:this={video}
+    ></video>
+    {#if video}
+      <Button
+        class="absolute top-2 left-2 md:top-6 md:left-6"
+        variant="secondary"
+        onclick={() => {
+          if (video) video.muted = false
+        }}
+      >
+        Unmute
+      </Button>
+    {/if}
+    <div class="flex text-sm p-4 gap-4">
+      <Avatar class="size-12">
+        <AvatarImage src={server.user.avatar(username)} />
+        <AvatarFallback class="bg-muted" />
+      </Avatar>
+      <div class="flex flex-col md:flex-row md:justify-between gap-y-1 grow">
+        <div
+          class="flex md:flex-col wrap-anywhere gap-x-1 items-center md:items-stretch self-start flex-wrap"
+        >
+          <div class="font-bold text-base">{displayName || `@${username}`}</div>
+          <div class="md:hidden">&middot;</div>
+          <div>{title}</div>
+          <div class="md:hidden">&middot;</div>
+          <div class="text-muted-foreground">{game}</div>
+        </div>
+        {#if elapsed()}
+          <div class="flex md:flex-col text-red-400 font-mono text-xs gap-x-4">
+            <div class="flex md:gap-2 items-center">
+              <User class="h-4" />
+              {viewers}
+            </div>
+            <div class="flex md:gap-2 items-center">
+              <Timer class="h-4" />
+              {elapsed()}
             </div>
           </div>
-          {#if elapsed()}
-            <div class="flex flex-col text-red-400 font-mono text-xs">
-              <div class="flex gap-2 items-center">
-                <User class="h-4" />
-                {viewers}
-              </div>
-              <div class="flex gap-2 items-center">
-                <Timer class="h-4" />
-                {elapsed()}
-              </div>
-            </div>
-          {/if}
-        </div>
+        {/if}
       </div>
-    </ScrollArea>
-  </ResizablePane>
-  <ResizableHandle />
-  <ResizablePane class="flex flex-col" defaultSize={30} collapsible collapsedSize={0} minSize={20}>
-    <div class="flex flex-col py-4 grow overflow-auto" bind:this={messagesContainer}>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet chat()}
+  <div
+    class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
+    bind:this={messagesContainer}
+  >
+    <div class="flex flex-col grow overflow-y-auto min-h-0">
       {#each messages as message, index (index)}
         {@const { type, fragments } = message}
         <div class="flex flex-col">
@@ -377,7 +454,7 @@
       {/each}
     </div>
     {#if data.user}
-      <div class="p-4 relative">
+      <div class="px-4 relative">
         <div class="flex flex-col">
           <div class="flex flex-col">
             {#if replying}
@@ -474,52 +551,5 @@
         </div>
       </div>
     {/if}
-  </ResizablePane>
-</ResizablePaneGroup>
-
-{#snippet messageContent(fragments: Fragment[])}
-  {#each fragments as fragment, index (index)}
-    {#if fragment.type === "text"}
-      <span>{fragment.text}</span>
-    {:else if fragment.type === "emote"}
-      <Tooltip>
-        <TooltipTrigger class="inline-flex items-center">
-          <img class="inline-block h-5" src={fragment.url} alt={fragment.name} />
-        </TooltipTrigger>
-        <TooltipContent class="flex flex-col items-center">
-          <img class="inline-block h-10" src={fragment.url} alt={fragment.name} />
-          {fragment.name}
-        </TooltipContent>
-      </Tooltip>
-    {:else if fragment.type === "emote-stack"}
-      <Tooltip>
-        <TooltipTrigger class="inline-flex items-center">
-          <span class="inline-grid place-items-center h-6">
-            {#each fragment.emotes as emote, index (index)}
-              <img
-                class="inline-block h-5 col-start-1 row-start-1"
-                src={emote.url}
-                alt={emote.name}
-              />
-            {/each}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent class="flex flex-col items-center">
-          <div class="-rotate-x-20 rotate-y-40 relative h-30 w-60 perspective-distant transform-3d">
-            {#each fragment.emotes as emote, index (index)}
-              <img
-                class="h-10 absolute w-30 object-contain"
-                src={emote.url}
-                alt={emote.name}
-                style:transform={`translateZ(${index * 40}px)`}
-              />
-            {/each}
-          </div>
-          {#each fragment.emotes as emote, index (index)}
-            <span>{emote.name}</span>
-          {/each}
-        </TooltipContent>
-      </Tooltip>
-    {/if}
-  {/each}
+  </div>
 {/snippet}

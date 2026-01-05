@@ -15,7 +15,7 @@
   const avatar = $derived(server.user.avatar(username))
 </script>
 
-<div class="flex flex-col p-2 gap-4">
+<div class="flex flex-col p-2 gap-4 grow">
   <div
     class="aspect-3/1 rounded-md border"
     style:background-color={colours[profile.colour]}

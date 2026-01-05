@@ -21,31 +21,41 @@
     SidebarMenu,
     SidebarMenuButton,
   } from "$lib/components/ui/sidebar"
-  import "../../app.css"
   import Settings from "@lucide/svelte/icons/settings"
   import { server } from "$lib/utils.svelte.js"
   import { resolve } from "$app/paths"
   import { invalidateAll } from "$app/navigation"
   import SlidersVertical from "@lucide/svelte/icons/sliders-vertical"
+  import Home from "@lucide/svelte/icons/home"
+  import { page } from "$app/state"
+  import { cn } from "$lib/utils"
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte"
+  import * as AvatarGroup from "$lib/components/ui/avatar-group"
+  import { useSidebar } from "$lib/components/ui/sidebar"
 
   const { children, data } = $props()
+  let isMobile = new IsMobile()
 </script>
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
     <SidebarHeader class="overflow-clip">
       <SidebarMenu>
-        <SidebarMenuItem class="flex items-center gap-2 *:last:grow">
-          <a href={resolve("/")}>
-            <Logo class="shrink-0" />
-          </a>
+        <SidebarMenuItem class="flex items-center gap-2 *:last:grow p-2 md:p-0">
+          {#if !isMobile.current}
+            <a href={resolve("/")}>
+              <Logo class="shrink-0" />
+            </a>
+          {/if}
           {#if data.user}
             <UserItem user={data.user}>
-              <ItemActions>
-                <Button variant="secondary" size="icon" href="/settings">
-                  <Settings />
-                </Button>
-              </ItemActions>
+              {#if !isMobile.current}
+                <ItemActions>
+                  <Button variant="secondary" size="icon" href="/settings">
+                    <Settings />
+                  </Button>
+                </ItemActions>
+              {/if}
             </UserItem>
           {/if}
         </SidebarMenuItem>
@@ -53,25 +63,27 @@
     </SidebarHeader>
     <SidebarContent>
       {#if data.user}
-        <SidebarGroup>
-          <SidebarGroupLabel>Your stream</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton size="lg" tooltipContent="Manage your stream">
-                  {#snippet child({ props })}
-                    <a href={resolve("/(main)/dashboard")} {...props}>
-                      <div class="size-8 bg-muted p-2 rounded-md">
-                        <SlidersVertical class="size-4" />
-                      </div>
-                      Dashboard
-                    </a>
-                  {/snippet}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {#if !isMobile.current}
+          <SidebarGroup>
+            <SidebarGroupLabel>Your stream</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton size="lg" tooltipContent="Manage your stream">
+                    {#snippet child({ props })}
+                      <a href={resolve("/(main)/dashboard")} {...props}>
+                        <div class="size-8 bg-muted p-2 rounded-md">
+                          <SlidersVertical class="size-4" />
+                        </div>
+                        Dashboard
+                      </a>
+                    {/snippet}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        {/if}
         <SidebarGroup>
           <SidebarGroupLabel>Following</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -118,7 +130,9 @@
       <SidebarMenu>
         <SidebarMenuItem>
           <div class="flex items-center gap-3">
-            <SidebarTrigger />
+            {#if !isMobile.current}
+              <SidebarTrigger />
+            {/if}
             {@render authButtons()}
           </div>
         </SidebarMenuItem>
@@ -129,17 +143,87 @@
   <div class="flex flex-col grow min-w-0">
     {@render header()}
     {@render children()}
+    <div
+      class="md:hidden grid auto-cols-[4em] grid-flow-col p-2 justify-between *:text-[10px] border-t"
+    >
+      <Button
+        variant="ghost"
+        href="/"
+        class={cn(
+          "flex flex-col h-auto px-0!",
+          page.url.pathname === "/" || "text-muted-foreground",
+        )}
+      >
+        <Home class="size-6" />
+        Home
+      </Button>
+      {#if data.user}
+        <Button
+          variant="ghost"
+          href="/dashboard"
+          class={cn(
+            "flex flex-col h-auto px-0!",
+            page.url.pathname === "/dashboard" || "text-muted-foreground",
+          )}
+        >
+          <SlidersVertical class="size-6" />
+          Dashboard
+        </Button>
+        <Button
+          variant="ghost"
+          href={resolve("/(main)/@[username=user]", { username: data.user.username })}
+          class={cn(
+            "flex flex-col h-auto px-0!",
+            page.url.pathname === `/@${data.user.username}` || "text-muted-foreground",
+          )}
+        >
+          <Avatar class="size-6">
+            <AvatarImage src={server.user.avatar(data.user.username)} alt={data.user.username} />
+            <AvatarFallback><Logo class="fill-muted-foreground" /></AvatarFallback>
+          </Avatar>
+          Profile
+        </Button>
+      {/if}
+      <Button
+        variant="ghost"
+        href="/settings"
+        class={cn(
+          "flex flex-col h-auto px-0!",
+          page.url.pathname === "/settings" || "text-muted-foreground",
+        )}
+      >
+        <Settings class="size-6" />
+        Settings
+      </Button>
+    </div>
   </div>
 </SidebarProvider>
 
 {#snippet header()}
+  {@const sidebar = useSidebar()}
   <div class="flex p-2 gap-2 md:hidden">
-    <div class="flex p-2 bg-sidebar border-sidebar-border rounded-lg border">
-      <SidebarTrigger />
-    </div>
-    <div class="flex p-2 bg-sidebar border-sidebar-border rounded-lg border grow justify-between">
+    <div class="flex p-2 bg-sidebar rounded-lg border grow justify-between">
       <Logo wordmark />
-      <div class="flex gap-2">{@render authButtons("sm")}</div>
+      <Button
+        onclick={() => sidebar.toggle()}
+        variant="ghost"
+        class="bg-transparent! px-1 py-0 h-8"
+      >
+        <AvatarGroup.Root>
+          <AvatarGroup.Member class="ring-sidebar"></AvatarGroup.Member>
+          {#each data.following.slice(0, 3) as followee (followee.username)}
+            <AvatarGroup.Member class="ring-sidebar">
+              <AvatarGroup.MemberImage
+                src={server.user.avatar(followee.username)}
+                alt={followee.username}
+              />
+              <AvatarGroup.MemberFallback>
+                <Logo class="fill-muted-foreground size-4" />
+              </AvatarGroup.MemberFallback>
+            </AvatarGroup.Member>
+          {/each}
+        </AvatarGroup.Root>
+      </Button>
     </div>
   </div>
 {/snippet}

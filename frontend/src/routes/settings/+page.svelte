@@ -111,9 +111,9 @@
   </Sidebar>
   <div class="flex flex-col grow">
     <div class="p-4 grow flex flex-col gap-2">
-      <div class="md:hidden flex gap-2">
-        <SidebarTrigger />
+      <div class="md:hidden flex justify-between">
         <h1 class="text-2xl font-bold">{tabs.find(({ value }) => value === tab)?.label}</h1>
+        <SidebarTrigger />
       </div>
       <h1 class="text-2xl font-bold hidden md:block">
         {tabs.find(({ value }) => value === tab)?.label}
