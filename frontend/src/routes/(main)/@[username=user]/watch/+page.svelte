@@ -186,6 +186,16 @@
     suggestions = []
     replying = null
   }
+
+  const suggest = (suggestion: string) => {
+    chatInput!.setRangeText(
+      suggestion + " ",
+      chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
+      chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ") + chatInput!.selectionEnd! + 1,
+      "end",
+    )
+    suggestions = []
+  }
 </script>
 
 <ResizablePaneGroup direction="horizontal" class="flex">
@@ -239,7 +249,7 @@
     </ScrollArea>
   </ResizablePane>
   <ResizableHandle />
-  <ResizablePane class="flex flex-col" defaultSize={30}>
+  <ResizablePane class="flex flex-col" defaultSize={30} collapsible collapsedSize={0} minSize={20}>
     <div class="flex flex-col py-4 grow overflow-auto" bind:this={messagesContainer}>
       {#each messages as message, index (index)}
         {@const { type, fragments } = message}
@@ -371,9 +381,9 @@
         <div class="flex flex-col">
           <div class="flex flex-col">
             {#if replying}
-              <div class="p-2 bg-card border rounded-md rounded-b-none flex text-sm">
+              <div class="p-2 bg-card border border-b-0 rounded-md rounded-b-none flex text-sm">
                 <div class="flex flex-col grow">
-                  <div class="">
+                  <div class="text-xs">
                     Replying to
                     <span
                       style="color: {colours[(await server.user.user(replying.username)).colour]}"
@@ -401,30 +411,23 @@
                 oninput={updateSuggestions}
                 onselectionchange={updateSuggestions}
                 onkeydown={(event) => {
-                  const suggest = () => {
-                    chatInput!.setRangeText(
-                      suggestions[0][0] + " ",
-                      chatInput!.value.slice(0, chatInput!.selectionEnd!).lastIndexOf(" ") + 1,
-                      chatInput!.value.slice(chatInput!.selectionEnd!).indexOf(" ")
-                        + chatInput!.selectionEnd!
-                        + 1,
-                      "end",
-                    )
-                    suggestions = []
-                  }
                   if (event.key === "Enter") {
                     if (suggestions.length) {
-                      suggest()
+                      suggest(suggestions[0][0])
                     } else {
                       sendMessage()
                     }
                   } else if (event.key === "Tab") {
                     if (suggestions.length) {
                       event.preventDefault()
-                      suggest()
+                      suggest(suggestions[0][0])
                     }
                   } else if (event.key === "Escape") {
                     event.preventDefault()
+                    if (!suggestions.length) {
+                      replying = null
+                      chatInput?.blur()
+                    }
                     suggestions = []
                   }
                 }}
@@ -441,12 +444,24 @@
           {#key suggestions}
             {#if suggestions.length && focused}
               <div
-                class="grid grid-cols-5 *:justify-start bg-card rounded-md border shadow-md p-2 gap-1 max-h-40 overflow-y-auto"
+                class="grid grid-cols-[repeat(5,auto)] bg-card rounded-md border shadow-md p-2 gap-1 max-h-60 overflow-y-auto"
               >
                 {#each suggestions as [name, [url]] (name)}
                   <Tooltip>
                     <TooltipTrigger>
-                      <img class="inline-block h-6" src={url} alt={name} />
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          onmousedown={(event: Event) => event.preventDefault()}
+                          onclick={() => {
+                            suggest(name)
+                          }}
+                          variant="ghost"
+                          class="p-1"
+                        >
+                          <img class="inline-block h-6" src={url} alt={name} />
+                        </Button>
+                      {/snippet}
                     </TooltipTrigger>
                     <TooltipContent>
                       {name}
