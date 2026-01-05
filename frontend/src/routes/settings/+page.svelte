@@ -115,6 +115,9 @@
         <SidebarTrigger />
         <h1 class="text-2xl font-bold">{tabs.find(({ value }) => value === tab)?.label}</h1>
       </div>
+      <h1 class="text-2xl font-bold hidden md:block">
+        {tabs.find(({ value }) => value === tab)?.label}
+      </h1>
       {#if tab === "profile"}
         <Profile user={data.user} />
       {:else if tab === "token"}

@@ -14,6 +14,8 @@
   import Separator from "$lib/components/ui/separator/separator.svelte"
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover"
   import type { User } from "../../models/user"
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte"
+  import { InputGroupAddon, InputGroupText } from "$lib/components/ui/input-group"
 
   let { user }: { user: User } = $props()
   let next = $state({
@@ -28,11 +30,13 @@
   let invalidUsername = $state(false)
   let invalidDisplayName = $state(false)
   let update: Promise<void> | null = $state(null)
+  let isMobile = new IsMobile()
+  let upload: HTMLLabelElement | null = $state(null)
 </script>
 
-<div class="flex gap-6">
+<div class="flex gap-6 flex-col md:flex-row">
   <BaseField class="w-auto">
-    <FieldLabel>Profile picture</FieldLabel>
+    <FieldLabel for={upload?.htmlFor}>Profile picture</FieldLabel>
     <ImageCropper.Root
       bind:src
       onCropped={async (url) => {
@@ -56,7 +60,7 @@
         location.reload()
       }}
     >
-      <ImageCropper.UploadTrigger>
+      <ImageCropper.UploadTrigger bind:ref={upload}>
         <ImageCropper.Preview />
       </ImageCropper.UploadTrigger>
       <ImageCropper.Dialog>
@@ -69,7 +73,7 @@
     </ImageCropper.Root>
     <FieldDescription>Maximum size is 16 MiB.</FieldDescription>
   </BaseField>
-  <Separator orientation="vertical" />
+  <Separator orientation={isMobile.current ? "horizontal" : "vertical"} />
   <form
     onsubmit={async (event) => {
       event.preventDefault()
@@ -99,6 +103,9 @@
           class="transition-colors duration-300"
           style={`color: ${colours[colour]}`}
         >
+          {#snippet group()}
+            <InputGroupAddon><InputGroupText>@</InputGroupText></InputGroupAddon>
+          {/snippet}
           <Popover>
             <PopoverTrigger class="p-1 size-9" title="Choose colour">
               <div

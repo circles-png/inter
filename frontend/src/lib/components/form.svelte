@@ -12,6 +12,7 @@
   import { debounced } from "$lib/utils.svelte"
   import type { FullAutoFill } from "svelte/elements"
   import type { Snippet } from "svelte"
+  import { InputGroup, InputGroupInput } from "./ui/input-group"
 
   let {
     id,
@@ -26,6 +27,7 @@
     validating,
     autocomplete,
     children,
+    group,
     ...props
   }: {
     id: string
@@ -40,6 +42,7 @@
     validating?: string
     autocomplete?: FullAutoFill
     children?: Snippet
+    group?: Snippet
     [key: string]: unknown
   } = $props()
   const debouncedValue = debounced(() => value, debounce)
@@ -82,7 +85,22 @@
 <Field data-invalid={invalid}>
   <FieldLabel for={id}>{label}</FieldLabel>
   <div class="flex gap-2">
-    <Input {id} bind:value aria-invalid={invalid} {type} name={id} {autocomplete} {...props} />
+    {#if group}
+      <InputGroup>
+        {@render group?.()}
+        <InputGroupInput
+          {id}
+          bind:value
+          aria-invalid={invalid}
+          {type}
+          name={id}
+          {autocomplete}
+          {...props}
+        />
+      </InputGroup>
+    {:else}
+      <Input {id} bind:value aria-invalid={invalid} {type} name={id} {autocomplete} {...props} />
+    {/if}
     {@render children?.()}
   </div>
   {#if value && error !== undefined && !unchanged}

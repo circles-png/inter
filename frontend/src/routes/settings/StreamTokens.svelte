@@ -20,6 +20,7 @@
   import { invalidateAll } from "$app/navigation"
   import type { User } from "../../models/user"
   import Eye from "@lucide/svelte/icons/eye"
+  import EyeOff from "@lucide/svelte/icons/eye-off"
   import {
     Dialog,
     DialogClose,
@@ -30,7 +31,7 @@
     DialogTitle,
     DialogTrigger,
   } from "$lib/components/ui/dialog"
-  import { Button, buttonVariants } from "$lib/components/ui/button"
+  import { buttonVariants } from "$lib/components/ui/button"
 
   let { user }: { user: User } = $props()
   let showToken = $state(false)
@@ -48,26 +49,39 @@
       class="overflow-scroll"
     />
     <InputGroupAddon align="inline-end">
-      <Dialog>
-        <DialogTrigger>
-          <InputGroupButton>
-            <Eye />
-            View
-          </InputGroupButton>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Are you sure you want to view your stream token?</DialogTitle>
-            <DialogDescription>
-              This will reveal your stream token. Rotate it if you believe it has been compromised.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="destructive" onclick={() => (showToken = true)}>Reveal</Button>
-            <DialogClose class={buttonVariants({ variant: "default" })}>Cancel</DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {#if !showToken}
+        <Dialog>
+          <DialogTrigger>
+            <InputGroupButton>
+              <Eye />
+              View
+            </InputGroupButton>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you sure you want to view your stream token?</DialogTitle>
+              <DialogDescription>
+                This will reveal your stream token. Rotate it if you believe it has been
+                compromised.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose
+                class={buttonVariants({ variant: "destructive" })}
+                onclick={() => (showToken = true)}
+              >
+                Reveal
+              </DialogClose>
+              <DialogClose class={buttonVariants({ variant: "default" })}>Cancel</DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      {:else}
+        <InputGroupButton onclick={() => (showToken = false)}>
+          <EyeOff />
+          Hide
+        </InputGroupButton>
+      {/if}
     </InputGroupAddon>
     <InputGroupAddon align="inline-end">
       <InputGroupButton>
