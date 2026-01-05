@@ -28,10 +28,9 @@
   let open = $state(false)
 </script>
 
-<div class="flex flex-col p-2 gap-2">
+<div class="flex flex-col p-2 gap-2 grow min-h-0">
   <div class="text-2xl font-bold">Dashboard</div>
-  <div class="text-sm text-muted-foreground">Stream Preview</div>
-  <div class="border rounded-md">
+  <div class="border rounded-md grow min-h-0">
     <Watch
       data={{
         following: data.following,

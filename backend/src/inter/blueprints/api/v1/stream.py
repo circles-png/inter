@@ -4,7 +4,8 @@ from hashlib import sha256
 import hmac
 from http.client import CREATED, NOT_FOUND, OK, UNAUTHORIZED
 import json
-from os import environ
+from operator import itemgetter
+from os import environ, urandom
 import secrets
 from typing import Any
 from aiortc import (
@@ -216,6 +217,7 @@ async def ws(username: str):
                             if not viewer:
                                 return
                             print("message", data)
+                            text, replying = itemgetter("text", "replying")(json.loads(data))
                             for client in stream.clients:
                                 if client.chat:
                                     client.chat.send(
@@ -223,9 +225,11 @@ async def ws(username: str):
                                             {
                                                 "type": "message",
                                                 "time": int(datetime.now().timestamp()),
-                                                "message": data,
+                                                "message": text,
+                                                "replying": replying,
                                                 "username": viewer.username,
                                                 "colour": viewer.colour,
+                                                "id": urandom(16).hex(),
                                             }
                                         )
                                     )
@@ -253,7 +257,9 @@ async def ws(username: str):
                         RTCSessionDescription(data["sdp"]["sdp"], data["sdp"]["type"])
                     )
 
-                    await connection.setLocalDescription(await connection.createAnswer())
+                    await connection.setLocalDescription(
+                        await connection.createAnswer()
+                    )
 
                     for candidate in candidates:
                         await connection.addIceCandidate(candidate)

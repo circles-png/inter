@@ -127,8 +127,8 @@
     <SidebarRail />
   </Sidebar>
   <div class="flex flex-col grow min-w-0">
-    {@render children()}
     {@render header()}
+    {@render children()}
   </div>
 </SidebarProvider>
 
