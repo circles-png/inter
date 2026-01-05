@@ -1,4 +1,4 @@
-from http.client import NOT_FOUND, OK, UNAUTHORIZED
+from http.client import NO_CONTENT, NOT_FOUND, OK, UNAUTHORIZED
 from io import BytesIO
 import PIL
 import PIL.Image
@@ -18,7 +18,7 @@ async def avatar(username: str):
         return quart.Response(status=404)
     avatar = users.avatar(user)
     if not avatar:
-        return quart.Response(status=404)
+        return quart.Response(status=NO_CONTENT)
     return quart.Response(avatar, mimetype=filetype.guess_mime(avatar))  # type: ignore
 
 
