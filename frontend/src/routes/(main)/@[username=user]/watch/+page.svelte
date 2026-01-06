@@ -30,9 +30,9 @@
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.streamer)
   let { title, game, start, viewers } = $derived(data.stream)
+  let emotes = $derived(data.emotes)
 
   let messages = $state<Message[]>([])
-  let emotes = $derived(data.emotes)
   let chatInput: null | HTMLInputElement = $state(null)
   let focused = $state(false)
   let suggestions = $state<[string, [string, boolean]][]>([])
@@ -323,11 +323,8 @@
 {/snippet}
 
 {#snippet chat()}
-  <div
-    class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
-    bind:this={messagesContainer}
-  >
-    <div class="flex flex-col grow overflow-y-auto min-h-0">
+  <div class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0">
+    <div class="flex flex-col grow overflow-y-auto min-h-0" bind:this={messagesContainer}>
       {#each messages as message, index (index)}
         {@const { type, fragments } = message}
         <div class="flex flex-col">
@@ -489,11 +486,7 @@
                 onselectionchange={updateSuggestions}
                 onkeydown={(event) => {
                   if (event.key === "Enter") {
-                    if (suggestions.length) {
-                      suggest(suggestions[0][0])
-                    } else {
-                      sendMessage()
-                    }
+                    sendMessage()
                   } else if (event.key === "Tab") {
                     if (suggestions.length) {
                       event.preventDefault()

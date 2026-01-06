@@ -37,7 +37,7 @@
           <div>{profile.following} following</div>
         </div>
       </div>
-      <Button href={resolve("/(main)/@[username=user]/watch", { username })}>
+      <Button href={resolve("/(main)/@[username=user]/watch", { username })} data-sveltekit-reload>
         {#if stream.start}
           Watch
         {:else}

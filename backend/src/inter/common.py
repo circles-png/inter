@@ -1,6 +1,6 @@
 from os import environ
 import quart
-import requests
+import httpx
 
 from inter.models.user import Users
 
@@ -18,7 +18,7 @@ try:
             emote["emote"]["flags"]["zeroWidth"],
         )
         for emote in [
-            *requests.post(
+            *httpx.post(
                 f"https://7tv.io/v4/gql",
                 json={
                     "query": """
@@ -45,7 +45,7 @@ try:
                     "variables": {"set": environ["EMOTE_SET"]},
                 },
             ).json()["data"]["emoteSets"]["emoteSet"]["emotes"]["items"],
-            *requests.post(
+            *httpx.post(
                 f"https://7tv.io/v4/gql",
                 json={
                     "query": """
@@ -74,7 +74,7 @@ try:
         ]
     }
 
-except requests.exceptions.ConnectionError:
+except httpx.ConnectError:
     emotes = {}
 
 COLOUR_COUNT = 17

@@ -2,6 +2,8 @@ from logging import getLogger
 import logging
 from pathlib import Path
 
+import httpx
+
 
 def create_app():
     from dotenv import load_dotenv
@@ -9,7 +11,6 @@ def create_app():
     from os.path import exists, join
     import quart
     from quart_cors import cors  # type: ignore
-    import requests
     from inter.blueprints.api import api
     from inter.common import app
 
@@ -27,8 +28,8 @@ def create_app():
 
     getLogger("hypercorn.access").addFilter(filter=Filter())
 
-    @app.route("/", defaults={"path": ""})
-    @app.route("/<path:path>")
+    @app.route("/", defaults={"path": ""}, methods=["GET", "POST"])
+    @app.route("/<path:path>", methods=["GET", "POST"])
     async def static_files(path: str):
         if environ.get("PROD"):
             if not app.static_folder:
@@ -40,7 +41,7 @@ def create_app():
                 return await quart.send_from_directory(app.static_folder, path)  # type: ignore
             return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
         else:
-            response = requests.get(f"http://localhost:5173/{path}")
+            response = httpx.get(f"http://localhost:5173/{path}")
             return quart.Response(
                 response.content,
                 response.status_code,

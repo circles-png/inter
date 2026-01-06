@@ -1,5 +1,4 @@
-from asyncio import Queue
-from typing import Any
+from collections import deque
 from aiortc import RTCPeerConnection
 from aiortc.rtcrtpreceiver import RemoteStreamTrack
 import aiortc.contrib.media
@@ -14,7 +13,7 @@ class Stream:
         self.audio: RemoteStreamTrack | None = None
         self.clients: list[Client] = []
         self.relay = aiortc.contrib.media.MediaRelay()
-        self.client_ws_queues: list[Queue[dict[str, Any]]] = []
         self.title: str = ""
         self.game: str = ""
         self.start: float | None = None
+        self.chat: deque[str] = deque(maxlen=100)

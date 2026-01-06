@@ -1,4 +1,4 @@
-from asyncio import Queue, create_task, gather
+from asyncio import create_task, gather, sleep
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import hmac
@@ -7,7 +7,6 @@ import json
 from operator import itemgetter
 from os import environ, urandom
 import secrets
-from typing import Any
 from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
@@ -147,8 +146,6 @@ async def ws(username: str):
     if not streamer:
         return quart.Response(status=NOT_FOUND)
     stream = streamer.stream
-    tx_queue: Queue[dict[str, Any]] = Queue(maxsize=10)
-    stream.client_ws_queues.append(tx_queue)
     client = None
     candidates: list[RTCIceCandidate] = []
 
@@ -202,7 +199,8 @@ async def ws(username: str):
                     def _(channel: RTCDataChannel):
                         print(f"datachannel", channel)
                         new_client.chat = channel
-
+                        for message in [*stream.chat]:
+                            channel.send(message)
                         channel.send(
                             json.dumps(
                                 {
@@ -217,22 +215,24 @@ async def ws(username: str):
                             if not viewer:
                                 return
                             print("message", data)
-                            text, replying = itemgetter("text", "replying")(json.loads(data))
+                            text, replying = itemgetter("text", "replying")(
+                                json.loads(data)
+                            )
+                            message = json.dumps(
+                                {
+                                    "type": "message",
+                                    "time": int(datetime.now().timestamp()),
+                                    "message": text,
+                                    "replying": replying,
+                                    "username": viewer.username,
+                                    "colour": viewer.colour,
+                                    "id": urandom(16).hex(),
+                                }
+                            )
+                            stream.chat.append(message)
                             for client in stream.clients:
                                 if client.chat:
-                                    client.chat.send(
-                                        json.dumps(
-                                            {
-                                                "type": "message",
-                                                "time": int(datetime.now().timestamp()),
-                                                "message": text,
-                                                "replying": replying,
-                                                "username": viewer.username,
-                                                "colour": viewer.colour,
-                                                "id": urandom(16).hex(),
-                                            }
-                                        )
-                                    )
+                                    client.chat.send(message)
 
                     @connection.on("iceconnectionstatechange")
                     def _():
@@ -264,7 +264,7 @@ async def ws(username: str):
                     for candidate in candidates:
                         await connection.addIceCandidate(candidate)
 
-                    await tx_queue.put(
+                    await new_client.tx_queue.put(
                         {
                             "type": "connect",
                             "sdp": {
@@ -296,7 +296,7 @@ async def ws(username: str):
                         if stream.audio or stream.video:
                             offer = await connection.createOffer()
                             await connection.setLocalDescription(offer)
-                            await tx_queue.put(
+                            await client.tx_queue.put(
                                 {
                                     "type": "renegotiate",
                                     "sdp": {
@@ -319,7 +319,9 @@ async def ws(username: str):
 
     async def tx():
         while True:
-            message = await tx_queue.get()
-            await websocket.send_json(message)
+            if client:
+                message = await client.tx_queue.get()
+                await websocket.send_json(message)
+            await sleep(0)
 
     await gather(create_task(rx()), create_task(tx()))
