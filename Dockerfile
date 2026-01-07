@@ -31,7 +31,6 @@ COPY --from=build /code/frontend/build /code/frontend/build
 COPY --from=backend $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=backend /code/backend /code/backend
 COPY db /code/db
-COPY backend/.env /code/env
 WORKDIR /code/backend
 
 EXPOSE 5001
