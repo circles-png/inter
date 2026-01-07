@@ -21,7 +21,7 @@
   import PencilLine from "@lucide/svelte/icons/pencil-line"
 
   let { data } = $props()
-  const start = data.stream.start
+  const start = $derived(data.stream.start)
   let elapsed = useElapsed(() => start)
   let title = $state(data.stream.title)
   let game = $state(data.stream.game)

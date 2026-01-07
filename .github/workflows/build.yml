@@ -14,13 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v6
         with:
           node-version: 25
+          cache: "pnpm"
       - run: |
           cd frontend
-          npm i
-          npm run build
+          pnpm i --frozen-lockfile
+          pnpm run build
       - uses: actions/upload-artifact@v4
         with:
           path: .
