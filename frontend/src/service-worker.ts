@@ -4,7 +4,6 @@
 /// <reference types="@sveltejs/kit" />
 
 import { build, files, version } from "$service-worker"
-import { server } from "$lib/utils.svelte"
 
 const self = globalThis.self as unknown as ServiceWorkerGlobalScope
 
@@ -48,10 +47,11 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       .then(async (subscription) => {
         const [p256dh, auth] = [subscription.getKey("p256dh"), subscription.getKey("auth")]
         if (!p256dh || !auth) return
-        await server.user.setNotify(username, {
-          endpoint: subscription.endpoint,
-          keys: { p256dh, auth },
-        })
+        const form = new FormData()
+        form.append("endpoint", subscription.endpoint)
+        form.append("p256dh", new Blob([p256dh]))
+        form.append("auth", new Blob([auth]))
+        return this.post(`/${encodeURIComponent(username)}/notify`, form)
       }),
   )
 })
