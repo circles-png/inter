@@ -1,4 +1,5 @@
 from asyncio import create_task, gather, sleep
+import base64
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import hmac
@@ -22,6 +23,7 @@ from aiortc.sdp import candidate_from_sdp
 import aiortc.contrib.media
 from quart import abort, request, websocket
 import quart
+from pywebpush import WebPushException, webpush_async  # type: ignore
 
 from inter.models.client import Client
 from inter.common import users
@@ -44,6 +46,33 @@ async def start_stream():
     )
     user.stream.connection = connection
     user.stream.start = datetime.now(timezone.utc).timestamp()
+    for follower in user.get_notified():
+        notify = follower.get_notify(user)
+        if not notify:
+            continue
+        endpoint, p256dh, auth = notify
+        try:
+            await webpush_async(
+                {
+                    "endpoint": endpoint,
+                    "keys": {
+                        "p256dh": base64.urlsafe_b64encode(p256dh),
+                        "auth": base64.urlsafe_b64encode(auth),
+                    },
+                },
+                json.dumps(
+                    {
+                        "displayName": user.display_name,
+                        "username": user.username,
+                        "url": f"http://{request.host}/@{user.username}/watch",
+                    }
+                ),
+                environ["PRIVATE_VAPID_KEY"],
+                {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
+            )
+        except WebPushException as exception:
+            print(repr(exception))
+            follower.set_notify(user, None)
 
     @connection.on("connectionstatechange")
     async def _():

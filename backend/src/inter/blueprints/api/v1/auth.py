@@ -52,7 +52,11 @@ async def signup():
     session = Session(user_id)
     response = quart.Response(status=CREATED)
     response.set_cookie(
-        "session_token", session.token, max_age=86400, secure=True, samesite="Lax"
+        "session_token",
+        session.token,
+        max_age=86400,
+        secure=bool(environ.get("PROD")),
+        samesite="Lax",
     )
     return response
 
@@ -93,7 +97,11 @@ async def login():
     session = Session(user.id)
     response = quart.Response(status=OK)
     response.set_cookie(
-        "session_token", session.token, max_age=86400, secure=True, samesite="Lax"
+        "session_token",
+        session.token,
+        max_age=86400,
+        secure=bool(environ.get("PROD")),
+        samesite="Lax",
     )
     return response
 
@@ -130,18 +138,18 @@ async def update():
     colour = data.get("colour")
     if colour is not None and colour != user.colour:
         if not isinstance(colour, int) or not (0 <= colour < COLOUR_COUNT):
-            return quart.Response(
-                "Choose a valid colour.", status=BAD_REQUEST
-            )
+            return quart.Response("Choose a valid colour.", status=BAD_REQUEST)
         user.colour = colour
 
     return quart.Response(status=OK)
+
 
 @auth.route("/update/stream-token", methods=["POST"])
 async def update_stream_token():
     user = User.from_session()
     user.stream_token = generate_secure_random_string()
     return quart.Response(status=OK)
+
 
 @auth.route("/update/avatar", methods=["POST"])
 async def update_avatar():

@@ -327,6 +327,73 @@ class User:
         self.stream.game = stream_game
         self.roles = roles
 
+    def set_notify(
+        self,
+        user: "User",
+        endpoint: str | None = None,
+        p256dh: bytes | None = None,
+        auth: bytes | None = None,
+    ):
+        from inter.common import users
+
+        if all([endpoint, p256dh, auth]):
+            with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+                db.cursor().execute(
+                    "update follow set endpoint = ?, p256dh = ?, auth = ? where follower = ? and followee = ?",
+                    (endpoint, p256dh, auth, self.id, user.id),
+                )
+        else:
+            with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+                db.cursor().execute(
+                    "update follow set endpoint = null, p256dh = null, auth = null where follower = ? and followee = ?",
+                    (self.id, user.id),
+                )
+
+        users.reload()
+
+    def get_notify(self, user: "User") -> tuple[str, bytes, bytes] | None:
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                "select endpoint, p256dh, auth from follow where follower = ? and followee = ?",
+                (self.id, user.id),
+            )
+            result = cursor.fetchone()
+        return result if result and all(result) else None
+
+    def get_notified(self) -> list["User"]:
+        from inter.common import users
+
+        with sqlite3.connect(environ["DATABASE_PATH"]) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+                    select
+                        group_concat(users.id, ' ')
+                    from
+                        follow
+                        left join users on follower = users.id
+                    where
+                            followee = ?
+                        and endpoint is not null
+                        and p256dh is not null
+                        and auth is not null
+                """,
+                (self.id,),
+            )
+            result = cursor.fetchone()
+            return (
+                [
+                    user
+                    for user in (
+                        users.find_by_id(int(user_id)) for user_id in result[0].split()
+                    )
+                    if user
+                ]
+                if result and result[0]
+                else []
+            )
+
 
 class Users:
     def __init__(self) -> None:

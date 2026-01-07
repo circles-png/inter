@@ -6,5 +6,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
   return {
     profile: await server.user.user(params.username),
     stream: await server.user.stream(params.username),
+    notify: await server.user.getNotify(params.username),
   }
 }

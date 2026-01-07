@@ -1,4 +1,4 @@
-from http.client import OK, UNAUTHORIZED
+from http.client import OK
 from typing import Any
 import quart
 
@@ -11,8 +11,6 @@ user_self = quart.Blueprint("self", __name__, url_prefix="/self")
 @user_self.route("/followers", methods=["GET"])
 async def self_followers():
     user = User.from_session()
-    if not user:
-        return quart.Response(status=UNAUTHORIZED)
     return quart.jsonify(
         [
             {"username": user.username, "displayName": user.display_name}
@@ -24,8 +22,6 @@ async def self_followers():
 @user_self.route("/following", methods=["GET"])
 async def self_following():
     user = User.from_session()
-    if not user:
-        return quart.Response(status=UNAUTHORIZED)
     return quart.jsonify(
         [
             {"username": user.username, "displayName": user.display_name}

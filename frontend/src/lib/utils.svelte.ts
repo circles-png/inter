@@ -69,7 +69,7 @@ export function serverWithFetch(f: typeof window.fetch) {
       return (await this.get("/random")).text()
     },
     async emotes(): Promise<{ [key: string]: [string, boolean] }> {
-      return (await this.get("/emotes")).json() // TODO cache these
+      return (await this.get("/emotes")).json()
     },
     user: {
       ...createBase(f, `${apiBase}/user`),
@@ -92,6 +92,21 @@ export function serverWithFetch(f: typeof window.fetch) {
       },
       async following(username: string): Promise<number> {
         return (await this.get(`/${encodeURIComponent(username)}/following`)).json()
+      },
+      async getNotify(username: string): Promise<"all" | "none"> {
+        return (await this.get(`/${encodeURIComponent(username)}/notify`)).text()
+      },
+      async setNotify(
+        username: string,
+        subscription: { endpoint: string; keys: { p256dh: ArrayBuffer; auth: ArrayBuffer } } | null,
+      ) {
+        const form = new FormData()
+        if (subscription !== null) {
+          form.append("endpoint", subscription.endpoint)
+          form.append("p256dh", new Blob([subscription.keys.p256dh]))
+          form.append("auth", new Blob([subscription.keys.auth]))
+        }
+        return this.post(`/${encodeURIComponent(username)}/notify`, form)
       },
       async stream(
         username: string,
