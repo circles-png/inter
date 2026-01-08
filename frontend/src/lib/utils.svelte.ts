@@ -274,11 +274,7 @@ export function parseMessage(
         break
     }
   }
-  if (currentEmoteStack.length == 1) {
-    result.push(currentEmoteStack[0])
-  } else if (currentEmoteStack.length > 1) {
-    result.push({ type: "emote-stack", emotes: [...currentEmoteStack] })
-  }
+  drain()
   return result
 }
 
