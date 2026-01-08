@@ -167,11 +167,11 @@ class User:
         users.reload()
 
     @property
-    def stream_title(self) -> str | None:
+    def stream_title(self) -> str:
         return self.stream.title
 
     @stream_title.setter
-    def stream_title(self, title: str | None) -> None:
+    def stream_title(self, title: str) -> None:
         from inter.common import users
 
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
@@ -183,11 +183,11 @@ class User:
         users.reload()
 
     @property
-    def stream_game(self) -> str | None:
+    def stream_game(self) -> str:
         return self.stream.game
 
     @stream_game.setter
-    def stream_game(self, game: str | None) -> None:
+    def stream_game(self, game: str) -> None:
         from inter.common import users
 
         with sqlite3.connect(environ["DATABASE_PATH"]) as db:
