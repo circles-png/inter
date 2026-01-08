@@ -36,8 +36,8 @@ async def update_stream():
     data: dict[str, Any] = await quart.request.get_json()
     title = data.get("title")
     if title:
-        user.set_stream_title(title)
+        user.stream_title = title
     game = data.get("game")
     if game:
-        user.set_stream_game(game)
+        user.stream_game = game
     return quart.Response(status=OK)
