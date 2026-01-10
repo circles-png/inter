@@ -4,6 +4,7 @@ import tailwindColours from "tailwindcss/colors"
 import { toast } from "svelte-sonner"
 import { onMount } from "svelte"
 import { DateTime } from "luxon"
+import wildcardMatch from "wildcard-match"
 
 function debounce<A extends unknown[]>(f: (...args: A) => unknown, ms: number) {
   let timeout: number | null = null
@@ -289,4 +290,61 @@ export function useElapsed(start: () => number | null) {
     return () => clearInterval(interval)
   })
   return () => elapsed
+}
+
+class Moderation {
+  sources: [string, string][] = $state([])
+  words: { value: string } = $state({ value: "" })
+  links: { block: boolean; warn: boolean } = $state({ block: false, warn: true })
+  regexes = $derived(
+    this.sources.flatMap(([source, flags]) => {
+      try {
+        return [new RegExp(source, flags)]
+      } catch {
+        return []
+      }
+    }),
+  )
+  constructor() {
+    const item = localStorage.getItem("moderation")
+    if (!item) return
+    try {
+      const { sources, words, links } = JSON.parse(item)
+      this.sources = sources
+      this.words = { value: words }
+      this.links = links
+    } catch {
+      // keep initial state
+    }
+  }
+}
+
+export function useModeration() {
+  const moderation = new Moderation()
+  const match = (input: string) => {
+    const words = input.split(/\s+/)
+    return (
+      moderation.regexes.some((regex) => !regex.test("") && regex.exec(input))
+      || moderation.words.value
+        .split(/\n|,/)
+        .some(
+          (word) =>
+            word.trim()
+            && words.some((other) =>
+              wildcardMatch(word.trim(), { flags: "i", separator: false })(other),
+            ),
+        )
+    )
+  }
+  $effect(() => {
+    localStorage.setItem(
+      "moderation",
+      JSON.stringify({
+        sources: moderation.sources,
+        words: moderation.words.value,
+        links: moderation.links,
+      }),
+    )
+  })
+  return { sources: moderation.sources, words: moderation.words, links: moderation.links, match }
 }
