@@ -65,7 +65,7 @@
   <FieldDescription>
     Filter out unwanted content in chat messages from others by specifying a blocked word list or
     use regular expression patterns to fine-tune filtering. These are stored locally in your browser
-    and not shared with anyone for privacy and performance reasons.
+    and not shared with anyone for privacy, customisability, and performance reasons.
   </FieldDescription>
   <div class="flex flex-col gap-2 border rounded-md p-4">
     <h3 class="text-lg font-semibold">Filtered words</h3>
@@ -206,9 +206,9 @@
       <Empty>
         <EmptyHeader>
           <EmptyTitle>No patterns added</EmptyTitle>
-          <EmptyDescription
-            >Add regular expressions to fine-tune content filtering.</EmptyDescription
-          >
+          <EmptyDescription>
+            Add regular expressions to fine-tune content filtering.
+          </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button onclick={addPattern}>

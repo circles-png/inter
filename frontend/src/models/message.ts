@@ -13,5 +13,6 @@ export type Message =
       colour: number
       replying: null | MessageId
       id: MessageId
+      filtered: boolean
     }
 export type MessageId = string & { readonly __brand: unique symbol }

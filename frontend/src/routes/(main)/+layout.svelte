@@ -42,11 +42,18 @@
   <Sidebar collapsible="icon" variant="floating">
     <SidebarHeader class="overflow-clip">
       <SidebarMenu>
-        <SidebarMenuItem class="flex items-center gap-2 *:last:grow p-2 md:p-0">
+        <SidebarMenuItem class="flex items-center gap-2 p-2 md:p-0">
           {#if !isMobile.current}
-            <a href={resolve("/")}>
-              <Logo class="shrink-0" />
-            </a>
+            <Tooltip>
+              <TooltipTrigger>
+                {#snippet child({ props })}
+                  <Button href={resolve("/")} variant="ghost" size="icon" {...props}>
+                    <Logo class="size-9" />
+                  </Button>
+                {/snippet}
+              </TooltipTrigger>
+              <TooltipContent>Go to home page</TooltipContent>
+            </Tooltip>
           {/if}
           <UserItem user={data.user}>
             {#if !isMobile.current}

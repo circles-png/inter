@@ -1,6 +1,13 @@
 <script lang="ts">
   import { ResizableHandle, ResizablePane, ResizablePaneGroup } from "$lib/components/ui/resizable"
-  import { apiBase, colours, parseMessage, server, useElapsed } from "$lib/utils.svelte"
+  import {
+    apiBase,
+    colours,
+    parseMessage,
+    server,
+    useElapsed,
+    useModeration,
+  } from "$lib/utils.svelte"
   import { onMount } from "svelte"
   import type { Fragment, Message, MessageId } from "../../../../models/message"
   import { Avatar, AvatarFallback, AvatarImage } from "$lib/components/ui/avatar"
@@ -26,6 +33,17 @@
   import X from "@lucide/svelte/icons/x"
   import { cn } from "$lib/utils"
   import { IsMobile } from "$lib/hooks/is-mobile.svelte.js"
+  import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+  } from "$lib/components/ui/dialog"
+  import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right"
 
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.streamer)
@@ -42,6 +60,7 @@
   let messagesContainer: null | HTMLDivElement = $state(null)
   let replying: Extract<Message, { type: "message" }> | null = $state(null)
   let isMobile = new IsMobile()
+  const moderation = useModeration()
 
   function handleChatMessage(event: MessageEvent) {
     let data:
@@ -55,19 +74,24 @@
           replying: null | MessageId
           id: MessageId
         } = JSON.parse(event.data)
+    const fragments = parseMessage(data.message, emotes)
     switch (data.type) {
       case "system":
-        messages.push({ type: "system", fragments: parseMessage(data.message, emotes) })
+        messages.push({ type: "system", fragments })
         break
       case "message":
         messages.push({
           type: "message",
           time: new Date(data.time),
           username: data.username,
-          fragments: parseMessage(data.message, emotes),
+          fragments,
           colour: data.colour,
           id: data.id,
           replying: data.replying,
+          filtered:
+            (data.username != username && moderation.match(data.message))
+            || (moderation.links.block
+              && fragments.some((fragment) => fragment.type == "text" && isURL(fragment.text))),
         })
         break
     }
@@ -198,6 +222,15 @@
     )
     suggestions = []
   }
+
+  const isURL = (text: string) => {
+    try {
+      const url = new URL(text)
+      return ["http:", "https:"].includes(url.protocol)
+    } catch {
+      return false
+    }
+  }
 </script>
 
 {#if isMobile.current}
@@ -226,7 +259,54 @@
 {#snippet messageContent(fragments: Fragment[])}
   {#each fragments as fragment, index (index)}
     {#if fragment.type === "text"}
-      <span>{fragment.text}</span>
+      {#if isURL(fragment.text)}
+        {#if moderation.links.warn}
+          <Dialog>
+            <DialogTrigger
+              class={cn(buttonVariants({ variant: "link", size: "sm" }), "p-0 h-auto")}
+            >
+              {fragment.text}
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you sure you want to visit this external link?</DialogTitle>
+                <DialogDescription class="flex flex-col">
+                  <code>{fragment.text}</code>
+                  <span>Make sure you trust the link before proceeding.</span>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose>
+                  {#snippet child({ props })}
+                    <Button
+                      variant="destructive"
+                      href={fragment.text}
+                      target="_blank"
+                      rel="noopener noreferer"
+                      {...props}
+                    >
+                      <SquareArrowOutUpRight />
+                      Open
+                    </Button>
+                  {/snippet}
+                </DialogClose>
+                <DialogClose class={buttonVariants({ variant: "default" })}>Cancel</DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        {:else}
+          <Button
+            href={fragment.text}
+            target="_blank"
+            rel="noopener noreferer"
+            variant="link"
+            size="sm"
+            class="p-0 h-auto">{fragment.text}</Button
+          >
+        {/if}
+      {:else}
+        <span>{fragment.text}</span>
+      {/if}
     {:else if fragment.type === "emote"}
       <Tooltip>
         <TooltipTrigger class="inline-flex items-center">
@@ -350,7 +430,7 @@
           {/if}
           <div
             class={[
-              "flex gap-2 items-center px-4 group",
+              "flex gap-2 items-center px-4 group transition",
               data.user
                 && fragments.some(
                   (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
@@ -358,7 +438,8 @@
                 && "bg-red-500/20 border-l-4 border-red-500",
               message.type == "message"
                 && message.id === replying?.id
-                && "border-l-4 border-blue-500 bg-blue-500/20",
+                && "border-l-4 border-green-500 bg-green-500/20",
+              message.type == "message" && message.filtered && "opacity-50 has-hover:opacity-100",
               type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
             ]}
           >
@@ -414,7 +495,20 @@
                   </HoverCardContent>
                 </HoverCard>
               {/if}
-              {@render messageContent(fragments)}
+              {#if message.type === "system" || !message.filtered}
+                {@render messageContent(fragments)}
+              {:else}
+                <span class="text-muted-foreground">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="text-xs p-1 h-auto peer"
+                    onclick={() => (message.filtered = false)}
+                  >
+                    Show filtered message
+                  </Button>
+                </span>
+              {/if}
             </p>
             {#if type === "message"}
               {@const reply = () => {
@@ -424,7 +518,12 @@
               <ButtonGroup
                 class="flex opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
               >
-                <Button variant="ghost" size="sm" class="h-6 w-6" onclick={reply}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-6 w-6 text-green-300 hover:text-green-500 hover:bg-green-950/50!"
+                  onclick={reply}
+                >
                   <Reply class="size-4" />
                 </Button>
                 <DropdownMenu>
@@ -437,9 +536,7 @@
                     <DropdownMenuItem onclick={reply}>
                       <Reply class="size-4" />
                       <p>
-                        Reply to <span style="color: {colours[message.colour]}">
-                          {message.username}
-                        </span>
+                        <span class="text-green-300">Reply</span> to {message.username}
                       </p>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -458,15 +555,23 @@
               <div class="p-2 bg-card border border-b-0 rounded-md rounded-b-none flex text-sm">
                 <div class="flex flex-col grow">
                   <div class="text-xs">
-                    Replying to
-                    <span
-                      style="color: {colours[(await server.user.user(replying.username)).colour]}"
-                    >
-                      {replying.username}
-                    </span>
+                    <span class="text-green-500">Replying</span> to {replying.username}
                   </div>
                   <div class="text-sm text-muted-foreground p-2 [--spacing:0.2em]">
-                    {@render messageContent(replying.fragments)}
+                    {#if !replying.filtered}
+                      {@render messageContent(replying.fragments)}
+                    {:else}
+                      <span class="text-muted-foreground">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          class="text-xs p-1 h-auto peer"
+                          onclick={() => replying && (replying.filtered = false)}
+                        >
+                          Show filtered message
+                        </Button>
+                      </span>
+                    {/if}
                   </div>
                 </div>
                 <Button
@@ -504,7 +609,15 @@
                 onfocus={() => (focused = true)}
                 onblur={() => (focused = false)}
               />
-              <Button size="icon" variant="secondary" onclick={sendMessage}>
+              <Button
+                size="icon"
+                variant="secondary"
+                onclick={sendMessage}
+                class={cn(
+                  replying && "text-green-300 bg-green-900 hover:bg-green-950",
+                  "transition",
+                )}
+              >
                 <Send />
               </Button>
             </ButtonGroup>
