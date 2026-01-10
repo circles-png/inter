@@ -32,6 +32,7 @@
   import { IsMobile } from "$lib/hooks/is-mobile.svelte"
   import * as AvatarGroup from "$lib/components/ui/avatar-group"
   import { useSidebar } from "$lib/components/ui/sidebar"
+  import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
 
   const { children, data } = $props()
   let isMobile = new IsMobile()
@@ -47,17 +48,22 @@
               <Logo class="shrink-0" />
             </a>
           {/if}
-          {#if data.user}
-            <UserItem user={data.user}>
-              {#if !isMobile.current}
-                <ItemActions>
-                  <Button variant="secondary" size="icon" href="/settings">
-                    <Settings />
-                  </Button>
-                </ItemActions>
-              {/if}
-            </UserItem>
-          {/if}
+          <UserItem user={data.user}>
+            {#if !isMobile.current}
+              <ItemActions>
+                <Tooltip>
+                  <TooltipTrigger>
+                    {#snippet child({ props })}
+                      <Button variant="secondary" size="icon" href="/settings" {...props}>
+                        <Settings />
+                      </Button>
+                    {/snippet}
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Change account and chat settings</TooltipContent>
+                </Tooltip>
+              </ItemActions>
+            {/if}
+          </UserItem>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarHeader>

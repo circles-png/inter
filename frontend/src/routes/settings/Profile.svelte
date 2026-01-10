@@ -18,6 +18,7 @@
   import { InputGroupAddon, InputGroupText } from "$lib/components/ui/input-group"
 
   let { user }: { user: User } = $props()
+  // svelte-ignore state_referenced_locally
   let next = $state({
     next: {
       username: user.username,

@@ -7,20 +7,34 @@
   import type { Snippet } from "svelte"
   import type { User } from "../../models/user"
   import { TooltipTrigger, TooltipContent, Tooltip, TooltipProvider } from "./ui/tooltip"
+  import { Button } from "./ui/button"
 
-  const { children, user }: { children: Snippet; user: User } = $props()
+  const { children, user }: { children: Snippet; user: User | null } = $props()
 </script>
 
 {#if user}
-  <a href={resolve("/(main)/@[username=user]", { username: user.username })} class="min-w-0">
-    <Item size="xs" class="flex-nowrap">
-      <ItemMedia>
+  <Button
+    href={resolve("/(main)/@[username=user]", { username: user.username })}
+    class="min-w-0 p-0"
+    variant="ghost"
+  >
+    {@render inner()}
+  </Button>
+{:else}
+  {@render inner()}
+{/if}
+{#snippet inner()}
+  <Item size="xs" class="flex-nowrap">
+    <ItemMedia>
+      {#if user}
         <Avatar>
           <AvatarImage src={server.user.avatar(user.username)} alt={user.username} />
           <AvatarFallback><Logo class="fill-muted-foreground size-6" /></AvatarFallback>
         </Avatar>
-      </ItemMedia>
-      <ItemContent>
+      {/if}
+    </ItemMedia>
+    <ItemContent>
+      {#if user}
         <TooltipProvider>
           <ItemTitle>
             <Tooltip>
@@ -51,8 +65,8 @@
             </ItemDescription>
           {/if}
         </TooltipProvider>
-      </ItemContent>
-      {@render children()}
-    </Item>
-  </a>
-{/if}
+      {/if}
+    </ItemContent>
+    {@render children()}
+  </Item>
+{/snippet}
