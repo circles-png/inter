@@ -119,6 +119,17 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
   })
+  $effect(() => {
+    if (
+      polls.some(
+        (poll) =>
+          (poll.start + poll.duration) * 1000 - now().getTime() <= 0
+          && poll.options.some((option) => option.percent === undefined),
+      )
+    ) {
+      rtc?.poll.send(JSON.stringify({ type: "update" }))
+    }
+  })
 
   onMount(() => {
     if (video) video.srcObject = new MediaStream()
@@ -486,9 +497,9 @@
                             colour
                           ]} {percent}%, transparent {percent}%) no-repeat padding-box"
                         >
-                          <span class="truncate"
-                            >{@render messageContent(parseMessage(text, emotes))}</span
-                          >
+                          <span class="truncate">
+                            {@render messageContent(parseMessage(text, emotes))}
+                          </span>
                           <span class="text-muted-foreground">
                             {percent}%
                           </span>
@@ -498,6 +509,7 @@
                           variant="outline"
                           class="justify-start"
                           size="sm"
+                          disabled={!data.user}
                           onclick={() => {
                             rtc?.poll.send(
                               JSON.stringify({ type: "vote", poll: id, option: optionIndex }),

@@ -209,7 +209,7 @@ async def ws(username: str):
                                 [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
                             )
                         ),
-                        viewer.username if viewer else None,
+                        viewer.id if viewer else None,
                     )
                     connection = new_client.connection
                     stream.clients.append(new_client)
@@ -270,16 +270,22 @@ async def ws(username: str):
                             case "poll":
                                 new_client.poll = channel
 
-                                def update(channel: RTCDataChannel = channel):
+                                def update(client: Client = new_client):
+                                    if not client.poll:
+                                        return
+
                                     def update_poll(poll: Poll):
                                         show_votes = poll.finished or (
-                                            viewer
+                                            client.viewer
                                             and (
                                                 any(
-                                                    viewer.id in option.users
+                                                    any(
+                                                        user == client.viewer
+                                                        for user in option.users
+                                                    )
                                                     for option in poll.options
                                                 )
-                                                or viewer.username == streamer.username
+                                                or client.viewer == streamer.id
                                             )  # TODO include moderators
                                         )
                                         return {
@@ -315,7 +321,7 @@ async def ws(username: str):
                                             "start": poll.start,
                                         }
 
-                                    channel.send(
+                                    client.poll.send(
                                         json.dumps(
                                             {
                                                 "type": "update",
@@ -329,8 +335,7 @@ async def ws(username: str):
 
                                 def update_all():
                                     for client in stream.clients:
-                                        if client.poll:
-                                            update(client.poll)
+                                        update(client)
 
                                 update()
 
