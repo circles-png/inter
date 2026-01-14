@@ -5,6 +5,7 @@ import { toast } from "svelte-sonner"
 import { onMount } from "svelte"
 import { DateTime } from "luxon"
 import wildcardMatch from "wildcard-match"
+import { SvelteDate } from "svelte/reactivity"
 
 function debounce<A extends unknown[]>(f: (...args: A) => unknown, ms: number) {
   let timeout: number | null = null
@@ -35,8 +36,7 @@ export const validateUsername = async (username: string) => {
   if (username.length > 32) {
     return "Choose a username with at most 32 characters."
   }
-  const response = server.auth.available(username)
-  if (response.status === 409) {
+  if (!(await server.auth.available(username))) {
     return "Username is already taken."
   }
   return null
@@ -290,6 +290,17 @@ export function useElapsed(start: () => number | null) {
     return () => clearInterval(interval)
   })
   return () => elapsed
+}
+
+export function useNow(delay: number = 1000) {
+  const now: SvelteDate = new SvelteDate()
+  onMount(() => {
+    const interval = setInterval(() => {
+      now.setTime(Date.now())
+    }, delay)
+    return () => clearInterval(interval)
+  })
+  return () => now
 }
 
 class Moderation {

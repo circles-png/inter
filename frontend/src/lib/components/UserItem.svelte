@@ -12,7 +12,7 @@
   const { children, user }: { children: Snippet; user: User | null } = $props()
 </script>
 
-<Item size="xs" class="flex-nowrap grow">
+<Item size="xs" class="flex-nowrap grow justify-end">
   {#if user}
     <Button
       href={resolve("/(main)/@[username=user]", { username: user.username })}

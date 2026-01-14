@@ -4,6 +4,7 @@ from aiortc.rtcrtpreceiver import RemoteStreamTrack
 import aiortc.contrib.media
 
 from inter.models.client import Client
+from inter.models.poll import Poll
 
 
 class Stream:
@@ -17,3 +18,4 @@ class Stream:
         self.game: str = ""
         self.start: float | None = None
         self.chat: deque[str] = deque(maxlen=100)
+        self.polls: list[Poll] = []

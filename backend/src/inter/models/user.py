@@ -411,6 +411,7 @@ class Users:
                 """
             )
             if self.users:
+                users: list[int] = []
                 for (
                     id,
                     username,
@@ -425,7 +426,22 @@ class Users:
                 ) in cursor.fetchall():
                     roles = [int(role) for role in roles.split(" ")] if roles else []
                     user = self.find_by_id(id)
+                    users.append(id)
                     if not user:
+                        self.users.append(
+                            User(
+                                id,
+                                username,
+                                display_name,
+                                stream_token,
+                                colour,
+                                salt,
+                                password_hash,
+                                stream_title,
+                                stream_game,
+                                roles,
+                            )
+                        )
                         continue
                     user.reload(
                         username,
@@ -438,6 +454,10 @@ class Users:
                         stream_game,
                         roles,
                     )
+                for user in self.users[:]:
+                    if user.id not in users:
+                        self.users.remove(user)
+
             else:
                 self.users = [
                     User(
@@ -484,6 +504,7 @@ class Users:
                 ),
             )
             (user_id,) = cursor.fetchone()
+
         self.reload()
         return user_id
 

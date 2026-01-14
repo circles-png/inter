@@ -7,6 +7,7 @@
     server,
     useElapsed,
     useModeration,
+    useNow,
   } from "$lib/utils.svelte"
   import { onMount } from "svelte"
   import type { Fragment, Message, MessageId } from "../../../../models/message"
@@ -44,6 +45,16 @@
     DialogTrigger,
   } from "$lib/components/ui/dialog"
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right"
+  import { Separator } from "$lib/components/ui/separator"
+  import type { Poll } from "../../../../models/poll"
+  import { Duration } from "luxon"
+  import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+  } from "$lib/components/ui/collapsible"
+  import ListChevronsUpDown from "@lucide/svelte/icons/list-chevrons-up-down"
+  import ListChevronsDownUp from "@lucide/svelte/icons/list-chevrons-down-up"
 
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.streamer)
@@ -55,13 +66,19 @@
   let focused = $state(false)
   let suggestions = $state<[string, [string, boolean]][]>([])
   let video: null | HTMLVideoElement = $state(null)
-  let rtc: { chat: RTCDataChannel; connection: RTCPeerConnection } | null = $state(null)
+  let rtc: { chat: RTCDataChannel; poll: RTCDataChannel; connection: RTCPeerConnection } | null =
+    $state(null)
   let elapsed = useElapsed(() => start)
   let messagesContainer: null | HTMLDivElement = $state(null)
   let replying: Extract<Message, { type: "message" }> | null = $state(null)
   let isMobile = new IsMobile()
-  const moderation = useModeration()
+  let polls = $state<Poll[]>([])
+  const now = useNow()
 
+  const moderation = useModeration()
+  export function poll() {
+    return rtc?.poll
+  }
   function handleChatMessage(event: MessageEvent) {
     let data:
       | { type: "system"; message: string }
@@ -183,8 +200,17 @@
 
       const chat = connection.createDataChannel("chat")
       chat.onmessage = handleChatMessage
+      const poll = connection.createDataChannel("poll")
+      poll.onmessage = (event) => {
+        const data: { type: "update"; polls: Poll[] } = JSON.parse(event.data)
+        switch (data.type) {
+          case "update":
+            polls = data.polls
+            break
+        }
+      }
 
-      rtc = { chat, connection }
+      rtc = { chat, poll, connection }
     }
 
     return () => {
@@ -403,153 +429,246 @@
 {/snippet}
 
 {#snippet chat()}
-  <div class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0">
-    <div class="flex flex-col grow overflow-y-auto min-h-0" bind:this={messagesContainer}>
-      {#each messages as message, index (index)}
-        {@const { type, fragments } = message}
-        <div class="flex flex-col">
-          {#if message.type == "message" && message.replying}
-            {@const replyingTo = messages.find(
-              (other): other is Extract<Message, { type: "message" }> =>
-                other.type == "message" && message.replying == other.id,
-            )}
-            {#if replyingTo}
-              <div class="px-4">
-                <div
-                  class="text-xs [--spacing:0.2em] text-muted-foreground flex gap-2 items-center"
-                >
-                  <Reply class="size-6" />
-                  <p>
-                    Replying to
-                    <span style="color: {colours[replyingTo.colour]}">{replyingTo.username}</span>:
-                    {@render messageContent(replyingTo.fragments)}
-                  </p>
-                </div>
-              </div>
-            {/if}
-          {/if}
-          <div
-            class={[
-              "flex gap-2 items-center px-4 group transition",
-              data.user
-                && fragments.some(
-                  (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
-                )
-                && "bg-red-500/20 border-l-4 border-red-500",
-              message.type == "message"
-                && message.id === replying?.id
-                && "border-l-4 border-green-500 bg-green-500/20",
-              message.type == "message" && message.filtered && "opacity-50 has-hover:opacity-100",
-              type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
-            ]}
-          >
-            <span class="text-xs text-muted-foreground">
-              {#if message.type == "message"}
-                {message.time.toLocaleTimeString()}
-              {/if}
-            </span>
-            <p class="wrap-anywhere grow">
-              {#if type === "message"}
-                <HoverCard>
-                  <HoverCardTrigger
-                    style="color: {colours[message.colour]}"
-                    href={resolve("/(main)/@[username=user]", { username: message.username })}
+  <ResizablePaneGroup direction="vertical">
+    <ResizablePane minSize={10} collapsible collapsedSize={0} defaultSize={20}>
+      <ScrollArea>
+        <div class="p-4 flex flex-col gap-2">
+          {#each polls as { id, question, options, duration, start }, pollIndex (pollIndex)}
+            <Collapsible open={true} class="group">
+              <div
+                class="border rounded-md p-4 flex flex-col gap-2 group-data-[state=closed]:p-0 transition-[padding]"
+              >
+                <div class="flex">
+                  <div
+                    class="flex group-data-[state=open]:flex-col grow group-data-[state=closed]:gap-2 group-data-[state=closed]:p-2 transition-[padding] min-w-0"
                   >
-                    {message.username}:
-                  </HoverCardTrigger>
-                  <HoverCardContent class="flex gap-4 items-center">
-                    <Avatar class="size-12">
-                      <AvatarImage
-                        src={server.user.avatar(message.username)}
-                        alt={message.username}
-                      />
-                      <AvatarFallback class="bg-muted" />
-                    </Avatar>
-                    <div class="flex flex-col grow">
-                      <div class="font-bold">
-                        {(await server.user.user(message.username)).displayName}
-                      </div>
-                      <div class="text-sm text-muted-foreground">@{message.username}</div>
-                    </div>
-                    {#if data.user && message.username != data.user.username}
-                      {#if data.following.some((following) => following.username == message.username)}
+                    <h1
+                      class="font-bold text-xs group-data-[state=open]:text-sm flex gap-2 group-data-[state=closed]:gap-1"
+                    >
+                      <span class="text-muted-foreground">Poll</span>
+                      {#if (start + duration) * 1000 - now().getTime() > 0}
+                        <span class="font-mono">
+                          {Duration.fromMillis(
+                            (start + duration) * 1000 - now().getTime(),
+                          ).toFormat("mm:ss")}
+                        </span>
+                        <span>remaining</span>
+                      {:else}
+                        <span>Ended</span>
+                      {/if}
+                    </h1>
+                    <h2
+                      class="font-bold text-xs group-data-[state=closed]:[--spacing:0.2em] group-data-[state=open]:text-lg wrap-anywhere group-data-[state=closed]:truncate min-w-0"
+                    >
+                      {@render messageContent(parseMessage(question, emotes))}
+                    </h2>
+                  </div>
+                  <CollapsibleTrigger
+                    class={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "group-data-[state=closed]:rounded-l-none",
+                    )}
+                  >
+                    <ListChevronsUpDown class="group-data-[state=open]:hidden" />
+                    <ListChevronsDownUp class="hidden group-data-[state=open]:block" />
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent class="flex flex-col gap-2">
+                  <Separator />
+                  <div class="grow flex flex-col gap-1">
+                    {#each options as { text, percent }, optionIndex (optionIndex)}
+                      {#if percent !== undefined}
                         <Button
-                          onclick={async () => {
-                            server.user.unfollow(message.username)
-                            await invalidateAll()
-                          }}
+                          class="justify-start"
+                          size="sm"
+                          variant="outline"
+                          style="background: linear-gradient(to right, {colours[
+                            colour
+                          ]} {percent}%, transparent {percent}%) no-repeat padding-box"
                         >
-                          Unfollow
+                          <span class="truncate"
+                            >{@render messageContent(parseMessage(text, emotes))}</span
+                          >
+                          <span class="text-muted-foreground">
+                            {percent}%
+                          </span>
                         </Button>
                       {:else}
                         <Button
-                          onclick={async () => {
-                            server.user.follow(message.username)
-                            await invalidateAll()
+                          variant="outline"
+                          class="justify-start"
+                          size="sm"
+                          onclick={() => {
+                            rtc?.poll.send(
+                              JSON.stringify({ type: "vote", poll: id, option: optionIndex }),
+                            )
                           }}
                         >
-                          Follow
+                          <span class="truncate">
+                            {@render messageContent(parseMessage(text, emotes))}
+                          </span>
                         </Button>
                       {/if}
-                    {/if}
-                  </HoverCardContent>
-                </HoverCard>
+                    {/each}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          {/each}
+        </div>
+      </ScrollArea>
+    </ResizablePane>
+    <ResizableHandle />
+    <ResizablePane
+      class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
+      minSize={20}
+    >
+      <div class="flex flex-col grow overflow-y-auto min-h-0" bind:this={messagesContainer}>
+        {#each messages as message, index (index)}
+          {@const { type, fragments } = message}
+          <div class="flex flex-col">
+            {#if message.type == "message" && message.replying}
+              {@const replyingTo = messages.find(
+                (other): other is Extract<Message, { type: "message" }> =>
+                  other.type == "message" && message.replying == other.id,
+              )}
+              {#if replyingTo}
+                <div class="px-4">
+                  <div
+                    class="text-xs [--spacing:0.2em] text-muted-foreground flex gap-2 items-center"
+                  >
+                    <Reply class="size-6" />
+                    <p>
+                      Replying to
+                      <span style="color: {colours[replyingTo.colour]}">{replyingTo.username}</span
+                      >:
+                      {@render messageContent(replyingTo.fragments)}
+                    </p>
+                  </div>
+                </div>
               {/if}
-              {#if message.type === "system" || !message.filtered}
-                {@render messageContent(fragments)}
-              {:else}
-                <span class="text-muted-foreground">
+            {/if}
+            <div
+              class={[
+                "flex gap-2 items-center px-4 group transition",
+                data.user
+                  && fragments.some(
+                    (fragment) => fragment.type == "text" && fragment.text == data.user?.username,
+                  )
+                  && "bg-red-500/20 border-l-4 border-red-500",
+                message.type == "message"
+                  && message.id === replying?.id
+                  && "border-l-4 border-green-500 bg-green-500/20",
+                message.type == "message" && message.filtered && "opacity-50 has-hover:opacity-100",
+                type === "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
+              ]}
+            >
+              <span class="text-xs text-muted-foreground">
+                {#if message.type == "message"}
+                  {message.time.toLocaleTimeString()}
+                {/if}
+              </span>
+              <p class="wrap-anywhere grow">
+                {#if type === "message"}
+                  <HoverCard>
+                    <HoverCardTrigger
+                      style="color: {colours[message.colour]}"
+                      href={resolve("/(main)/@[username=user]", { username: message.username })}
+                    >
+                      {message.username}:
+                    </HoverCardTrigger>
+                    <HoverCardContent class="flex gap-4 items-center">
+                      <Avatar class="size-12">
+                        <AvatarImage
+                          src={server.user.avatar(message.username)}
+                          alt={message.username}
+                        />
+                        <AvatarFallback class="bg-muted" />
+                      </Avatar>
+                      <div class="flex flex-col grow">
+                        <div class="font-bold">
+                          {(await server.user.user(message.username)).displayName}
+                        </div>
+                        <div class="text-sm text-muted-foreground">@{message.username}</div>
+                      </div>
+                      {#if data.user && message.username != data.user.username}
+                        {#if data.following.some((following) => following.username == message.username)}
+                          <Button
+                            onclick={async () => {
+                              server.user.unfollow(message.username)
+                              await invalidateAll()
+                            }}
+                          >
+                            Unfollow
+                          </Button>
+                        {:else}
+                          <Button
+                            onclick={async () => {
+                              server.user.follow(message.username)
+                              await invalidateAll()
+                            }}
+                          >
+                            Follow
+                          </Button>
+                        {/if}
+                      {/if}
+                    </HoverCardContent>
+                  </HoverCard>
+                {/if}
+                {#if message.type === "system" || !message.filtered}
+                  {@render messageContent(fragments)}
+                {:else}
+                  <span class="text-muted-foreground">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="text-xs p-1 h-auto peer"
+                      onclick={() => (message.filtered = false)}
+                    >
+                      Show filtered message
+                    </Button>
+                  </span>
+                {/if}
+              </p>
+              {#if type === "message"}
+                {@const reply = () => {
+                  replying = message
+                  chatInput?.focus()
+                }}
+                <ButtonGroup
+                  class="flex opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
+                >
                   <Button
                     variant="ghost"
                     size="sm"
-                    class="text-xs p-1 h-auto peer"
-                    onclick={() => (message.filtered = false)}
+                    class="h-6 w-6 text-green-300 hover:text-green-500 hover:bg-green-950/50!"
+                    onclick={reply}
                   >
-                    Show filtered message
+                    <Reply class="size-4" />
                   </Button>
-                </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      class={buttonVariants({ variant: "ghost", size: "sm", class: "h-6 w-6" })}
+                    >
+                      <Ellipsis class="size-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onclick={reply}>
+                        <Reply class="size-4" />
+                        <p>
+                          <span class="text-green-300">Reply</span> to {message.username}
+                        </p>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </ButtonGroup>
               {/if}
-            </p>
-            {#if type === "message"}
-              {@const reply = () => {
-                replying = message
-                chatInput?.focus()
-              }}
-              <ButtonGroup
-                class="flex opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="h-6 w-6 text-green-300 hover:text-green-500 hover:bg-green-950/50!"
-                  onclick={reply}
-                >
-                  <Reply class="size-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    class={buttonVariants({ variant: "ghost", size: "sm", class: "h-6 w-6" })}
-                  >
-                    <Ellipsis class="size-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onclick={reply}>
-                      <Reply class="size-4" />
-                      <p>
-                        <span class="text-green-300">Reply</span> to {message.username}
-                      </p>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ButtonGroup>
-            {/if}
+            </div>
           </div>
-        </div>
-      {/each}
-    </div>
-    {#if data.user}
-      <div class="px-4 relative">
-        <div class="flex flex-col">
+        {/each}
+      </div>
+      {#if data.user}
+        <div class="px-4 relative">
           <div class="flex flex-col">
             {#if replying}
               <div class="p-2 bg-card border border-b-0 rounded-md rounded-b-none flex text-sm">
@@ -622,40 +741,40 @@
               </Button>
             </ButtonGroup>
           </div>
+          <div class="absolute bottom-full left-0 px-4">
+            {#key suggestions}
+              {#if suggestions.length && focused}
+                <div
+                  class="grid grid-cols-[repeat(5,auto)] bg-card rounded-md border shadow-md p-2 gap-1 max-h-60 overflow-y-auto"
+                >
+                  {#each suggestions as [name, [url]] (name)}
+                    <Tooltip>
+                      <TooltipTrigger>
+                        {#snippet child({ props })}
+                          <Button
+                            {...props}
+                            onmousedown={(event: Event) => event.preventDefault()}
+                            onclick={() => {
+                              suggest(name)
+                            }}
+                            variant="ghost"
+                            class="p-1"
+                          >
+                            <img class="inline-block h-6" src={url} alt={name} />
+                          </Button>
+                        {/snippet}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {name}
+                      </TooltipContent>
+                    </Tooltip>
+                  {/each}
+                </div>
+              {/if}
+            {/key}
+          </div>
         </div>
-        <div class="absolute bottom-full left-0 px-4">
-          {#key suggestions}
-            {#if suggestions.length && focused}
-              <div
-                class="grid grid-cols-[repeat(5,auto)] bg-card rounded-md border shadow-md p-2 gap-1 max-h-60 overflow-y-auto"
-              >
-                {#each suggestions as [name, [url]] (name)}
-                  <Tooltip>
-                    <TooltipTrigger>
-                      {#snippet child({ props })}
-                        <Button
-                          {...props}
-                          onmousedown={(event: Event) => event.preventDefault()}
-                          onclick={() => {
-                            suggest(name)
-                          }}
-                          variant="ghost"
-                          class="p-1"
-                        >
-                          <img class="inline-block h-6" src={url} alt={name} />
-                        </Button>
-                      {/snippet}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {name}
-                    </TooltipContent>
-                  </Tooltip>
-                {/each}
-              </div>
-            {/if}
-          {/key}
-        </div>
-      </div>
-    {/if}
-  </div>
+      {/if}
+    </ResizablePane>
+  </ResizablePaneGroup>
 {/snippet}

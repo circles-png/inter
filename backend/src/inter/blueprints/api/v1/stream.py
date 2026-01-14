@@ -8,6 +8,7 @@ import json
 from operator import itemgetter
 from os import environ, urandom
 import secrets
+from typing import Literal, TypedDict
 from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
@@ -27,6 +28,7 @@ from pywebpush import WebPushException, webpush_async  # type: ignore
 
 from inter.models.client import Client
 from inter.common import users
+from inter.models.poll import Option, Poll
 from inter.models.user import User
 
 
@@ -227,41 +229,185 @@ async def ws(username: str):
                     @connection.on("datachannel")
                     def _(channel: RTCDataChannel):
                         print(f"datachannel", channel)
-                        new_client.chat = channel
-                        for message in [*stream.chat]:
-                            channel.send(message)
-                        channel.send(
-                            json.dumps(
-                                {
-                                    "type": "system",
-                                    "message": "Connected to chat! Hola",
-                                }
-                            )
-                        )
+                        match channel.label:
+                            case "chat":
+                                new_client.chat = channel
+                                for message in [*stream.chat]:
+                                    channel.send(message)
+                                channel.send(
+                                    json.dumps(
+                                        {
+                                            "type": "system",
+                                            "message": "Connected to chat! Hola",
+                                        }
+                                    )
+                                )
 
-                        @channel.on("message")
-                        def _(data: str):
-                            if not viewer:
-                                return
-                            print("message", data)
-                            text, replying = itemgetter("text", "replying")(
-                                json.loads(data)
-                            )
-                            message = json.dumps(
-                                {
-                                    "type": "message",
-                                    "time": int(datetime.now().timestamp()),
-                                    "message": text,
-                                    "replying": replying,
-                                    "username": viewer.username,
-                                    "colour": viewer.colour,
-                                    "id": urandom(16).hex(),
-                                }
-                            )
-                            stream.chat.append(message)
-                            for client in stream.clients:
-                                if client.chat:
-                                    client.chat.send(message)
+                                @channel.on("message")
+                                def _(data: str):
+                                    if not viewer:
+                                        return
+                                    print("message", data)
+                                    text, replying = itemgetter("text", "replying")(
+                                        json.loads(data)
+                                    )
+                                    message = json.dumps(
+                                        {
+                                            "type": "message",
+                                            "time": int(datetime.now().timestamp()),
+                                            "message": text,
+                                            "replying": replying,
+                                            "username": viewer.username,
+                                            "colour": viewer.colour,
+                                            "id": urandom(16).hex(),
+                                        }
+                                    )
+                                    stream.chat.append(message)
+                                    for client in stream.clients:
+                                        if client.chat:
+                                            client.chat.send(message)
+
+                            case "poll":
+                                new_client.poll = channel
+
+                                def update(channel: RTCDataChannel = channel):
+                                    def update_poll(poll: Poll):
+                                        show_votes = poll.finished or (
+                                            viewer
+                                            and (
+                                                any(
+                                                    viewer.id in option.users
+                                                    for option in poll.options
+                                                )
+                                                or viewer.username == streamer.username
+                                            )  # TODO include moderators
+                                        )
+                                        return {
+                                            "id": poll.id,
+                                            "question": poll.question,
+                                            "options": (
+                                                [
+                                                    {
+                                                        "text": option.text,
+                                                        "percent": (
+                                                            len(option.users)
+                                                            / sum(
+                                                                len(option.users)
+                                                                for option in poll.options
+                                                            )
+                                                            * 100
+                                                            if any(
+                                                                option.users
+                                                                for option in poll.options
+                                                            )
+                                                            else 0
+                                                        ),
+                                                    }
+                                                    for option in poll.options
+                                                ]
+                                                if show_votes
+                                                else [
+                                                    {"text": option.text}
+                                                    for option in poll.options
+                                                ]
+                                            ),
+                                            "duration": poll.duration,
+                                            "start": poll.start,
+                                        }
+
+                                    channel.send(
+                                        json.dumps(
+                                            {
+                                                "type": "update",
+                                                "polls": [
+                                                    update_poll(poll)
+                                                    for poll in stream.polls
+                                                ],
+                                            }
+                                        )
+                                    )
+
+                                def update_all():
+                                    for client in stream.clients:
+                                        if client.poll:
+                                            update(client.poll)
+
+                                update()
+
+                                @channel.on("message")
+                                def _(data: str):
+                                    class Update(TypedDict):
+                                        type: Literal["update"]
+
+                                    class Start(TypedDict):
+                                        type: Literal["start"]
+                                        question: str
+                                        options: list[str]
+                                        duration: float
+
+                                    class Vote(TypedDict):
+                                        type: Literal["vote"]
+                                        poll: str
+                                        option: int
+
+                                    parsed: Update | Vote | Start = json.loads(data)
+                                    match parsed["type"]:
+                                        case "update":
+                                            update()
+                                        case "start":
+                                            # TODO include moderators
+                                            if (
+                                                not viewer
+                                                or viewer.username != streamer.username
+                                            ):
+                                                return
+                                            poll = Poll(
+                                                parsed["question"],
+                                                [
+                                                    Option(text)
+                                                    for text in parsed["options"]
+                                                ],
+                                                parsed["duration"],
+                                                datetime.now().timestamp(),
+                                            )
+                                            stream.polls.append(poll)
+
+                                            async def delete_poll():
+                                                await sleep(poll.duration + 60)
+                                                stream.polls.remove(poll)
+                                                update_all()
+
+                                            create_task(delete_poll())
+                                            update_all()
+                                        case "vote":
+                                            if not viewer:
+                                                return
+                                            poll = next(
+                                                (
+                                                    poll
+                                                    for poll in stream.polls
+                                                    if poll.id == parsed["poll"]
+                                                ),
+                                                None,
+                                            )
+                                            if not poll:
+                                                return
+                                            option = (
+                                                poll.options[parsed["option"]]
+                                                if 0
+                                                <= parsed["option"]
+                                                < len(poll.options)
+                                                else None
+                                            )
+                                            if not option:
+                                                return
+                                            option.users.add(viewer.id)
+                                            update_all()
+                                        case _:
+                                            pass
+
+                            case _:
+                                pass
 
                     @connection.on("iceconnectionstatechange")
                     def _():
