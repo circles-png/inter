@@ -6,43 +6,66 @@ Compatible with all WHIP streaming clients.
 
 ## Usage
 
-1. Clone this repository, either with `git`
+> The contents of this section are derived from _Installation / How to Run_ Instructions in _Inter Part B Documentation_ as of this commit.
 
-    ```bash
-    git clone https://github.com/BaulkhamHillsHS/SE_Project_Matthew_Li
-    ```
+### Prerequisites
 
-    or [`gh`](https://cli.github.com).
+- Docker
 
-    ```bash
-    gh repo clone BaulkhamHillsHS/SE_Project_Matthew_Li
-    ```
+### Cloning code
 
-2. Ensure you have [Python 3.13](https://www.python.org/downloads/) or higher, [Node.js 25](https://nodejs.org/en/download/current), and [pnpm](https://pnpm.io) installed.
-3. In `./frontend`, install dependencies with:
+Clone the GitHub repository with `git` or [`gh`](https://cli.github.com).
 
-    ```bash
-    pnpm i
-    ```
+```shell
+git clone https://github.com/BaulkhamHillsHS/SE_Project_Matthew_Li --depth 1
 
-4. In `./backend`, install dependencies with:
+# or
+gh repo clone BaulkhamHillsHS/SE_Project_Matthew_Li -- --depth 1
+```
 
-    ```bash
-    poetry install
-    ```
+### Creating the database
 
-5. Add environment variables in `./backend/.env`
-   - `EMOTE_SET` - the ID of an additional 7TV emote set to load from
-   - `DATABASE_PATH` - the path of the SQLite3 database  relative to `./backend`
-6. To run the application, execute `./scripts/run.nu`.
-7. Open your web browser and navigate to `http://localhost:5001` to access the frontend interface.
+Use the schema at `./db/schema.sql` to create a SQLite3 database `.db` file.
 
-### via Github Actions
+### Environment variables
 
-1. Download an artifact from the latest workflow run and unzip.
-2. `cd` into its backend folder,
-3. `poetry install` or `python -m pip install -r requirements.txt` to install dependencies.
-4. Run with `PROD=1 poetry run hypercorn "src/inter:create_app()" -b 0.0.0.0:5001`.
+Create a public-private key pair for the [VAPID](https://datatracker.ietf.org/doc/html/rfc8292) process by using a trusted key generator such as the NPM [`web-push`](https://www.npmjs.com/package/web-push) `generate-vapid-keys` CLI:
+
+```sh
+pnpm dlx web-push generate-vapid-keys
+```
+
+Modify the public key in `./frontend/.env` to match the generated public key.
+Set backend environment variables by writing the following to `./backend/.env`:
+
+```env
+EMOTE_SET =
+DATABASE_PATH =
+STREAM_WS_AUTH_KEY =
+PRIVATE_VAPID_KEY =
+```
+
+and appending the following information on each line respectively:
+
+- the ID of an emote set to be combined with the default global emote set, as an ASCII-encoded ULID in accordance with [https://github.com/ulid/spec](https://github.com/ulid/spec).
+- the location of the database file either as
+
+  an absolute path, or
+
+  a relative path with respect to the `./backend` directory; for instance, the path to a database at `./db/database.db` is specified as `../db/database.db`.
+
+- a cryptographically secure secret key for verifying user identity on the stream communication WebSocket endpoint with at least 256 bits of entropy.
+- the generated [VAPID](https://datatracker.ietf.org/doc/html/rfc8292) private key associated with the generated public key.
+
+### Starting the container and accessing the PWA
+
+Run the following command to build an image and start the container.
+
+```shell
+docker compose up --build
+```
+
+Navigate to `localhost` or the server machine's internal LAN IP address to access the PWA.
 
 ## Internals
 
