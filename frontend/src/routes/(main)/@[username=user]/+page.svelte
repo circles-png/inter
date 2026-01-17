@@ -66,7 +66,7 @@
           {#if following.some((following) => following.username == username)}
             <Button
               onclick={async () => {
-                server.user.unfollow(username)
+                await server.user.unfollow(username)
                 await invalidateAll()
               }}
               variant="outline"
@@ -138,7 +138,7 @@
           {:else}
             <Button
               onclick={async () => {
-                server.user.follow(username)
+                await server.user.follow(username)
                 await invalidateAll()
               }}
             >

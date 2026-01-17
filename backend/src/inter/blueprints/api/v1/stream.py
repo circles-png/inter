@@ -27,120 +27,125 @@ import quart
 from pywebpush import WebPushException, webpush_async  # type: ignore
 
 from inter.models.client import Client
-from inter.common import users
 from inter.models.poll import Option, Poll
-from inter.models.user import User
+from inter.common import get_session
+from inter.models.stream import Stream
 
 
 stream = quart.Blueprint("stream", __name__, url_prefix="/stream/")
+streams: dict[int, Stream] = {}
 
 
 @stream.route("/", methods=["POST", "DELETE"])
 async def start_stream():
-    token = request.headers.get("Authorization")
-    if not token:
-        return abort(401)
-    user = users.find_by_token(token[len("Bearer ") :])
-    if not user:
-        return abort(401)
-    connection = RTCPeerConnection(
-        RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
-    )
-    user.stream.connection = connection
-    user.stream.start = datetime.now(timezone.utc).timestamp()
-    for follower in user.get_notified():
-        notify = follower.get_notify(user)
-        if not notify:
-            continue
-        endpoint, p256dh, auth = notify
-        try:
-            await webpush_async(
-                {
-                    "endpoint": endpoint,
-                    "keys": {
-                        "p256dh": base64.urlsafe_b64encode(p256dh),
-                        "auth": base64.urlsafe_b64encode(auth),
-                    },
-                },
-                json.dumps(
+    from inter.models.db.user import User
+
+    async with get_session() as session, session.begin():
+        token = request.headers.get("Authorization")
+        if not token:
+            return abort(UNAUTHORIZED)
+        user = await User.find_by_token(session, token[len("Bearer ") :])
+        if not user:
+            return abort(UNAUTHORIZED)
+        connection = RTCPeerConnection(
+            RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
+        )
+        stream = streams[user.id]
+        stream.connection = connection
+        stream.start = datetime.now(timezone.utc).timestamp()
+        for follower in await user.get_notified(session):
+            notify = await follower.get_notify(user, session)
+            if not notify:
+                continue
+            endpoint, p256dh, auth = notify
+            try:
+                await webpush_async(
                     {
-                        "displayName": user.display_name,
-                        "username": user.username,
-                        "url": f"http://{request.host}/@{user.username}/watch",
-                    }
-                ),
-                environ["PRIVATE_VAPID_KEY"],
-                {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
-            )
-        except WebPushException as exception:
-            print(repr(exception))
-            follower.set_notify(user, None)
+                        "endpoint": endpoint,
+                        "keys": {
+                            "p256dh": base64.urlsafe_b64encode(p256dh),
+                            "auth": base64.urlsafe_b64encode(auth),
+                        },
+                    },
+                    json.dumps(
+                        {
+                            "displayName": user.display_name,
+                            "username": user.username,
+                            "url": f"http://{request.host}/@{user.username}/watch",
+                        }
+                    ),
+                    environ["PRIVATE_VAPID_KEY"],
+                    {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
+                )
+            except WebPushException as exception:
+                print(repr(exception))
+                await follower.set_notify(user, session)
 
-    @connection.on("connectionstatechange")
-    async def _():
-        print(f"tx connectionstatechange", connection.connectionState)
+        @connection.on("connectionstatechange")
+        async def _():
+            print(f"tx connectionstatechange", connection.connectionState)
 
-        if connection.connectionState == "closed":
-            if user.stream.video:
-                user.stream.video.stop()
-            if user.stream.audio:
-                user.stream.audio.stop()
-            user.stream.video = None
-            user.stream.audio = None
-            user.stream.relay = aiortc.contrib.media.MediaRelay()
-            for client in user.stream.clients:
-                for track in client.tracks:
-                    track.stop()
-            await connection.close()
-            user.stream.connection = None
-            user.stream.start = None
-            user.stream.clients = []
+            if connection.connectionState == "closed":
+                if stream.video:
+                    stream.video.stop()
+                if stream.audio:
+                    stream.audio.stop()
+                stream.video = None
+                stream.audio = None
+                stream.relay = aiortc.contrib.media.MediaRelay()
+                for client in stream.clients:
+                    for track in client.tracks:
+                        track.stop()
+                await connection.close()
+                stream.connection = None
+                stream.start = None
+                stream.clients = []
 
-    @connection.on("datachannel")
-    def _():
-        print(f"tx datachannel")
+        @connection.on("datachannel")
+        def _():
+            print(f"tx datachannel")
 
-    @connection.on("icecandidate")
-    def _(candidate: RTCIceCandidate):
-        print(f"tx icecandidate", candidate)
+        @connection.on("icecandidate")
+        def _(candidate: RTCIceCandidate):
+            print(f"tx icecandidate", candidate)
 
-    @connection.on("icecandidateerror")
-    def _():
-        print(f"tx icecandidateerror")
+        @connection.on("icecandidateerror")
+        def _():
+            print(f"tx icecandidateerror")
 
-    @connection.on("iceconnectionstatechange")
-    def _():
-        print(f"tx iceconnectionstatechange", connection.iceConnectionState)
+        @connection.on("iceconnectionstatechange")
+        def _():
+            print(f"tx iceconnectionstatechange", connection.iceConnectionState)
 
-    @connection.on("negotiationneeded")
-    def _():
-        print(f"tx negotiationneeded")
+        @connection.on("negotiationneeded")
+        def _():
+            print(f"tx negotiationneeded")
 
-    @connection.on("signalingstatechange")
-    def _():
-        print(f"tx signalingstatechange", connection.signalingState)
+        @connection.on("signalingstatechange")
+        def _():
+            print(f"tx signalingstatechange", connection.signalingState)
 
-    @connection.on("track")
-    def _(track: RemoteStreamTrack):
-        print(f"tx track", track)
-        if track.kind == "video":
-            user.stream.video = track
-        elif track.kind == "audio":
-            user.stream.audio = track
+        @connection.on("track")
+        def _(track: RemoteStreamTrack):
+            print(f"tx track", track)
+            if track.kind == "video":
+                stream.video = track
+            elif track.kind == "audio":
+                stream.audio = track
 
-    await connection.setRemoteDescription(
-        RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
-    )
-    await connection.setLocalDescription(await connection.createAnswer())
-    return quart.Response(
-        connection.localDescription.sdp,
-        status=CREATED,
-        content_type="application/sdp",
-        headers={
-            "Location": f"{request.host_url}api/v1/stream/{user.username}/tx",
-            "Link": '<stun:stun.l.google.com:19302>; rel="ice-server"',
-        },
-    )
+        await connection.setRemoteDescription(
+            RTCSessionDescription(sdp=(await request.data).decode(), type="offer")
+        )
+        await connection.setLocalDescription(await connection.createAnswer())
+        return quart.Response(
+            connection.localDescription.sdp,
+            status=CREATED,
+            content_type="application/sdp",
+            headers={
+                "Location": f"{request.host_url}api/v1/stream/{user.username}/tx",
+                "Link": '<stun:stun.l.google.com:19302>; rel="ice-server"',
+            },
+        )
 
 
 @stream.route("/<string:username>/tx", methods=["POST", "PATCH"])
@@ -157,26 +162,30 @@ async def stream_tx_delete(username: str):
 
 @stream.route("/auth", methods=["GET"])
 async def ws_auth():
-    if "session_token" not in request.cookies:
-        return quart.Response(status=UNAUTHORIZED)
-    user = User.from_session()
-    data = (
-        f"{user.username}\n{int((datetime.now() + timedelta(seconds=10)).timestamp())}"
-    )
-    signature = hmac.new(
-        environ["STREAM_WS_AUTH_KEY"].encode(),
-        data.encode(),
-        sha256,
-    ).hexdigest()
-    return quart.Response(f"{data}\n{signature}")
+    from inter.models.db.user import User
+
+    async with get_session() as session, session.begin():
+        if "session_token" not in request.cookies:
+            return quart.Response(status=UNAUTHORIZED)
+        user = await User.from_session(session)
+        data = f"{user.username}\n{int((datetime.now() + timedelta(seconds=10)).timestamp())}"
+        signature = hmac.new(
+            environ["STREAM_WS_AUTH_KEY"].encode(),
+            data.encode(),
+            sha256,
+        ).hexdigest()
+        return quart.Response(f"{data}\n{signature}")
 
 
 @stream.websocket("/<string:username>/ws")
 async def ws(username: str):
-    streamer = users.find_by_username(username)
-    if not streamer:
-        return quart.Response(status=NOT_FOUND)
-    stream = streamer.stream
+    from inter.models.db.user import User
+
+    async with get_session() as session, session.begin():
+        streamer = await User.find_by_username(session, username)
+        if not streamer:
+            return quart.Response(status=NOT_FOUND)
+        stream = streams[streamer.id]
     client = None
     candidates: list[RTCIceCandidate] = []
 
@@ -198,7 +207,9 @@ async def ws(username: str):
                             ).hexdigest(),
                             signature,
                         ):
-                            viewer = users.find_by_username(username)
+                            async with get_session() as session, session.begin():
+                                user = await User.find_by_username(session, username)
+                                viewer = user.id if user else None
                         else:
                             viewer = None
                     else:
@@ -209,7 +220,7 @@ async def ws(username: str):
                                 [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
                             )
                         ),
-                        viewer.id if viewer else None,
+                        viewer,
                     )
                     connection = new_client.connection
                     stream.clients.append(new_client)
@@ -244,24 +255,31 @@ async def ws(username: str):
                                 )
 
                                 @channel.on("message")
-                                def _(data: str):
+                                async def _(data: str):
                                     if not viewer:
                                         return
                                     print("message", data)
                                     text, replying = itemgetter("text", "replying")(
                                         json.loads(data)
                                     )
-                                    message = json.dumps(
-                                        {
-                                            "type": "message",
-                                            "time": int(datetime.now().timestamp()),
-                                            "message": text,
-                                            "replying": replying,
-                                            "username": viewer.username,
-                                            "colour": viewer.colour,
-                                            "id": urandom(16).hex(),
-                                        }
-                                    )
+                                    async with (
+                                        get_session() as session,
+                                        session.begin(),
+                                    ):
+                                        user = await session.get(User, viewer)
+                                        if not user:
+                                            return
+                                        message = json.dumps(
+                                            {
+                                                "type": "message",
+                                                "time": int(datetime.now().timestamp()),
+                                                "message": text,
+                                                "replying": replying,
+                                                "username": user.username,
+                                                "colour": user.colour,
+                                                "id": urandom(16).hex(),
+                                            }
+                                        )
                                     stream.chat.append(message)
                                     for client in stream.clients:
                                         if client.chat:
@@ -340,7 +358,7 @@ async def ws(username: str):
                                 update()
 
                                 @channel.on("message")
-                                def _(data: str):
+                                async def _(data: str):
                                     class Update(TypedDict):
                                         type: Literal["update"]
 
@@ -360,12 +378,18 @@ async def ws(username: str):
                                         case "update":
                                             update()
                                         case "start":
-                                            # TODO include moderators
-                                            if (
-                                                not viewer
-                                                or viewer.username != streamer.username
+                                            async with (
+                                                get_session() as session,
+                                                session.begin(),
                                             ):
-                                                return
+                                                user = await session.get(User, viewer)
+                                                # TODO include moderators
+                                                if (
+                                                    not user
+                                                    or user.username
+                                                    != streamer.username
+                                                ):
+                                                    return
                                             poll = Poll(
                                                 parsed["question"],
                                                 [
@@ -406,7 +430,7 @@ async def ws(username: str):
                                             )
                                             if not option:
                                                 return
-                                            option.users.add(viewer.id)
+                                            option.users.add(viewer)
                                             update_all()
                                         case _:
                                             pass

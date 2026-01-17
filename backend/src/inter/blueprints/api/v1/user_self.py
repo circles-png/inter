@@ -2,7 +2,8 @@ from http.client import OK
 from typing import Any
 import quart
 
-from inter.models.user import User
+from inter.models.db.user import User
+from inter.common import get_session
 
 
 user_self = quart.Blueprint("self", __name__, url_prefix="/self")
@@ -10,34 +11,37 @@ user_self = quart.Blueprint("self", __name__, url_prefix="/self")
 
 @user_self.route("/followers", methods=["GET"])
 async def self_followers():
-    user = User.from_session()
-    return quart.jsonify(
-        [
-            {"username": user.username, "displayName": user.display_name}
-            for user in user.followers()
-        ]
-    )
+    async with get_session() as session, session.begin():
+        user = await User.from_session(session)
+        return quart.jsonify(
+            [
+                {"username": user.username, "displayName": user.display_name}
+                for user in await user.followers(session)
+            ]
+        )
 
 
 @user_self.route("/following", methods=["GET"])
 async def self_following():
-    user = User.from_session()
-    return quart.jsonify(
-        [
-            {"username": user.username, "displayName": user.display_name}
-            for user in user.following()
-        ]
-    )
+    async with get_session() as session, session.begin():
+        user = await User.from_session(session)
+        return quart.jsonify(
+            [
+                {"username": user.username, "displayName": user.display_name}
+                for user in await user.following(session)
+            ]
+        )
 
 
 @user_self.route("/stream/update", methods=["POST"])
 async def update_stream():
-    user = User.from_session()
-    data: dict[str, Any] = await quart.request.get_json()
-    title = data.get("title")
-    if title:
-        user.stream_title = title
-    game = data.get("game")
-    if game:
-        user.stream_game = game
-    return quart.Response(status=OK)
+    async with get_session() as session, session.begin():
+        user = await User.from_session(session)
+        data: dict[str, Any] = await quart.request.get_json()
+        title = data.get("title")
+        if title:
+            user.stream_title = title
+        game = data.get("game")
+        if game:
+            user.stream_game = game
+        return quart.Response(status=OK)

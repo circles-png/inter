@@ -4,7 +4,6 @@ from aiortc import MediaStreamTrack, RTCDataChannel, RTCPeerConnection
 
 
 class Client:
-
     def __init__(self, connection: RTCPeerConnection, viewer: int | None) -> None:
         self.connection = connection
         self.chat: RTCDataChannel | None = None

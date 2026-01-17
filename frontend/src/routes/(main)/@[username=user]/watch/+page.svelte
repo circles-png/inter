@@ -607,7 +607,7 @@
                         {#if data.following.some((following) => following.username == message.username)}
                           <Button
                             onclick={async () => {
-                              server.user.unfollow(message.username)
+                              await server.user.unfollow(message.username)
                               await invalidateAll()
                             }}
                           >
@@ -616,7 +616,7 @@
                         {:else}
                           <Button
                             onclick={async () => {
-                              server.user.follow(message.username)
+                              await server.user.follow(message.username)
                               await invalidateAll()
                             }}
                           >

@@ -3,10 +3,10 @@ name = "backend"
 version = "0.1.0"
 description = ""
 authors = [{ name = "Matthew Li", email = "matthew.li10@education.nsw.gov.au" }]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "python-dotenv (>=1.2.1,<2.0.0)",
-    "quart[dotenv] (>=0.20.0,<0.21.0)",
+    "quart[dotenv] (>=0.19.9,<0.20.0)",
     "aiortc (>=1.14.0,<2.0.0)",
     "quart-cors (>=0.8.0,<0.9.0)",
     "filetype (>=1.2.0,<2.0.0)",
@@ -14,6 +14,8 @@ dependencies = [
     "httpx (>=0.28.1,<0.29.0)",
     "pywebpush (>=2.2.0,<3.0.0)",
     "hypercorn (>=0.18.0,<0.19.0)",
+    "sqlalchemy[aiosqlite] (>=2.0.45,<3.0.0)",
+    "quart-sqlalchemy (>=3.0.4,<4.0.0)",
 ]
 
 [tool.poetry]
@@ -24,8 +26,8 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.0.1"
-hypothesis = "^6.148.7"
+pytest = "^9.0.2"
+hypothesis = "^6.150.2"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

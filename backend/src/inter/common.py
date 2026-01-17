@@ -1,80 +1,45 @@
+import asyncio
 from os import environ
+from typing import Any, Callable
 import quart
-import httpx
+from quart_sqlalchemy.framework import QuartSQLAlchemy
+from quart_sqlalchemy import (
+    AsyncBindConfig,
+    AsyncSession,
+    EngineConfig,
+    SQLAlchemyConfig,
+)
+from sqlalchemy import select
 
-from inter.models.user import Users
 
 app = quart.Quart(__name__, static_folder="../../../frontend/build")
-users = Users()
+db = QuartSQLAlchemy(
+    config=SQLAlchemyConfig(
+        binds={
+            "default": AsyncBindConfig(
+                engine=EngineConfig(
+                    url=f"sqlite+aiosqlite:///{environ["DATABASE_PATH"]}",
+                )
+            )
+        }
+    ),
+    app=app,
+)
+get_session: Callable[[], AsyncSession[Any]] = lambda: db.bind.Session()  # type: ignore
 
-try:
-    emotes = {
-        emote["name"]: (
-            next(
-                image["url"]
-                for image in emote["emote"]["images"]
-                if image["url"].endswith("2x.webp")
-            ),
-            emote["emote"]["flags"]["zeroWidth"],
-        )
-        for emote in [
-            *httpx.post(
-                f"https://7tv.io/v4/gql",
-                json={
-                    "query": """
-                        query Emotes($set: Id!){
-                            emoteSets {
-                                emoteSet(id: $set) {
-                                    emotes {
-                                        items {
-                                            name: alias
-                                            emote {
-                                                flags {
-                                                    zeroWidth: defaultZeroWidth
-                                                }
-                                                images {
-                                                    url
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    """,
-                    "variables": {"set": environ["EMOTE_SET"]},
-                },
-            ).json()["data"]["emoteSets"]["emoteSet"]["emotes"]["items"],
-            *httpx.post(
-                f"https://7tv.io/v4/gql",
-                json={
-                    "query": """
-                        {
-                            emoteSets {
-                                global {
-                                    emotes {
-                                        items {
-                                            name: alias
-                                            emote {
-                                                flags {
-                                                    zeroWidth: defaultZeroWidth
-                                                }
-                                                images {
-                                                    url
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    """
-                },
-            ).json()["data"]["emoteSets"]["global"]["emotes"]["items"],
-        ]
-    }
 
-except httpx.ConnectError:
-    emotes = {}
+async def create_initial_streams() -> None:
+    from inter.blueprints.api.v1.stream import streams
+    from inter.models.db.user import User
+    from inter.models.stream import Stream
+    import inter.models.db.follow as _
+    import inter.models.db.session as _
+    await db.create_all()
+    async with get_session() as session, session.begin():
+        for id in (await session.scalars(select(User.id))).all():
+            streams[id] = Stream()
+
+
+asyncio.run(create_initial_streams())
 
 COLOUR_COUNT = 17
