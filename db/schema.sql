@@ -2,5 +2,16 @@ CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE `roles` (`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL, `name` TEXT NOT NULL, `icon` BLOB NOT NULL) STRICT;
 CREATE TABLE IF NOT EXISTS "sessions" (`id` TEXT PRIMARY KEY UNIQUE NOT NULL, `secret_hash` BLOB NOT NULL, `created_at` INTEGER NOT NULL, `user` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE) STRICT;
 CREATE TABLE IF NOT EXISTS "users_roles" (`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL, `user` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE, `role` INTEGER NOT NULL REFERENCES `roles`(`id`) ON DELETE CASCADE, UNIQUE (user, role)) STRICT;
-CREATE TABLE IF NOT EXISTS "users" (`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL, `username` TEXT UNIQUE NOT NULL, `stream_token` TEXT NOT NULL, `password_hash` BLOB, `salt` TEXT NOT NULL, `colour` INTEGER NOT NULL, `avatar` BLOB, `display_name` TEXT NOT NULL, `stream_title` TEXT NOT NULL, `stream_game` TEXT NOT NULL) STRICT;
-CREATE TABLE IF NOT EXISTS "follow" ( `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,`follower` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE, `followee` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE, "endpoint" TEXT, `p256dh` BLOB, `auth` BLOB, UNIQUE (`follower`, `followee`), CHECK(follower != followee)) STRICT;
+CREATE TABLE IF NOT EXISTS "users" (`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL, `username` TEXT UNIQUE NOT NULL, `stream_token` TEXT NOT NULL, `password_hash` BLOB, `salt` TEXT NOT NULL, `colour` INTEGER NOT NULL, `avatar` BLOB, `display_name` TEXT NOT NULL, `stream_title` TEXT NOT NULL DEFAULT '', `stream_game` TEXT NOT NULL DEFAULT '') STRICT;
+CREATE TABLE follow (
+  follower INTEGER NOT NULL,
+  followee INTEGER NOT NULL,
+  endpoint VARCHAR,
+  p256dh BLOB,
+  auth BLOB,
+  PRIMARY KEY (follower, followee),
+  UNIQUE (follower, followee),
+  CHECK (follower != followee),
+  FOREIGN KEY(follower) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY(followee) REFERENCES users (id) ON DELETE CASCADE
+);
