@@ -69,6 +69,9 @@ export function serverWithFetch(f: typeof window.fetch) {
     async random() {
       return (await this.get("/random")).text()
     },
+    async search(query: string): Promise<{ name: string; results: string[] }[]> {
+      return (await this.get(`/search/${encodeURIComponent(query)}`)).json()
+    },
     async emotes(): Promise<{ [key: string]: [string, boolean] }> {
       return (await this.get("/emotes")).json()
     },

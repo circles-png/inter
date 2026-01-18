@@ -33,16 +33,28 @@
   import * as AvatarGroup from "$lib/components/ui/avatar-group"
   import { useSidebar } from "$lib/components/ui/sidebar"
   import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
+  import { InputGroup, InputGroupAddon, InputGroupInput } from "$lib/components/ui/input-group"
+  import Search from "@lucide/svelte/icons/search"
+  import { Spinner } from "$lib/components/ui/spinner"
+  import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+  } from "$lib/components/ui/empty"
 
   const { children, data } = $props()
   let isMobile = new IsMobile()
+  let searchQuery: string = $state("")
+  let searchResults: Promise<{ name: string; results: string[] }[]> | null = $state(null)
 </script>
 
 <SidebarProvider class="flex grow">
   <Sidebar collapsible="icon" variant="floating">
     <SidebarHeader class="overflow-clip">
       <SidebarMenu>
-        <SidebarMenuItem class="flex items-center gap-2 p-2 md:p-0">
+        <SidebarMenuItem class="flex items-center gap-2 p-2 md:p-0 shrink-0">
           {#if !isMobile.current}
             <Tooltip>
               <TooltipTrigger>
@@ -97,6 +109,7 @@
             </SidebarGroupContent>
           </SidebarGroup>
         {/if}
+        {@render search()}
         <SidebarGroup>
           <SidebarGroupLabel>Following</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -137,6 +150,8 @@
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+      {:else}
+        {@render search()}
       {/if}
     </SidebarContent>
     <SidebarFooter class="overflow-clip">
@@ -259,4 +274,83 @@
     <Button variant="secondary" href="/login" class="grow" {size}>Log in</Button>
     <Button href="/signup" class="grow" {size}>Sign up</Button>
   {/if}
+{/snippet}
+
+{#snippet search()}
+  <SidebarGroup
+    class="group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:h-0 transition-[margin,opacity,height]"
+  >
+    <InputGroup>
+      <InputGroupAddon>
+        <Search />
+      </InputGroupAddon>
+      <InputGroupInput
+        placeholder="Search Inter"
+        bind:value={searchQuery}
+        oninput={() => {
+          searchResults = searchQuery ? server.search(searchQuery) : null
+        }}
+      />
+      {#if searchResults}
+        {#await searchResults}
+          <InputGroupAddon align="inline-end">
+            <Spinner />
+          </InputGroupAddon>
+        {/await}
+      {/if}
+    </InputGroup>
+    {#if searchResults}
+      {#await searchResults then searchResults}
+        {#each searchResults as group (group.name)}
+          <SidebarGroup>
+            {#if group.name}
+              <SidebarGroupLabel>
+                {group.name}
+              </SidebarGroupLabel>
+            {/if}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {#each group.results as username, index (index)}
+                  {@const followee = await server.user.user(username)}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton>
+                      {#snippet tooltipContent()}
+                        {#if followee.displayName}
+                          {followee.displayName} (@{username})
+                        {:else}
+                          @{username}
+                        {/if}
+                      {/snippet}
+                      {#snippet child({ props })}
+                        <a href={resolve("/(main)/@[username=user]", { username })} {...props}>
+                          <Avatar class="size-4">
+                            <AvatarImage src={server.user.avatar(username)} alt={username} />
+                            <AvatarFallback>
+                              <Logo class="fill-muted-foreground size-6" />
+                            </AvatarFallback>
+                          </Avatar>
+                          {followee.displayName || `@${username}`}
+                          {#if followee.displayName}
+                            <span class="text-muted-foreground">@{username}</span>
+                          {/if}
+                        </a>
+                      {/snippet}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                {/each}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        {:else}
+          <Empty>
+            <EmptyMedia></EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>No results found</EmptyTitle>
+              <EmptyDescription>Try adjusting your search query.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        {/each}
+      {/await}
+    {/if}
+  </SidebarGroup>
 {/snippet}

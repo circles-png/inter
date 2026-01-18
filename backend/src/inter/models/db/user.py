@@ -54,7 +54,7 @@ class User(db.Model):
         follow = (
             await session.scalars(
                 select(Follow).where(
-                    Follow.follower == self.id and Follow.followee == user.id
+                    Follow.follower == self.id, Follow.followee == user.id
                 )
             )
         ).one_or_none()
@@ -142,10 +142,10 @@ class User(db.Model):
                 select(User)
                 .join(Follow, Follow.follower == User.id)
                 .where(
-                    Follow.followee == self.id
-                    and Follow.endpoint != None
-                    and Follow.p256dh != None
-                    and Follow.auth != None
+                    Follow.followee == self.id,
+                    Follow.endpoint != None,
+                    Follow.p256dh != None,
+                    Follow.auth != None,
                 )
             )
         ).all()
