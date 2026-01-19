@@ -362,3 +362,13 @@ export function useModeration() {
   })
   return { sources: moderation.sources, words: moderation.words, links: moderation.links, match }
 }
+
+export const isURL = (text: string) => {
+  try {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
+    const url = new URL(text)
+    return ["http:", "https:"].includes(url.protocol)
+  } catch {
+    return false
+  }
+}
