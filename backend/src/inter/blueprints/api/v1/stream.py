@@ -419,7 +419,7 @@ async def ws(username: str):
                                                 ),
                                                 None,
                                             )
-                                            if not poll:
+                                            if not poll or poll.finished:
                                                 return
                                             option = (
                                                 poll.options[parsed["option"]]
