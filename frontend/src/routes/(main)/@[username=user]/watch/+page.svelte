@@ -33,9 +33,11 @@
   import MessageContent from "./Fragments.svelte"
   import Chat from "./Chat.svelte"
   import type { Message, MessageId } from "../../../../models/message.ts"
+  import { page } from "$app/state"
 
   let { data } = $props()
-  let { displayName, colour, username } = $derived(data.streamer)
+  let { displayName, colour } = $derived(data.profile)
+  let username = $derived(page.params.username || "")
   let { title, game, start, viewers } = $derived(data.stream)
   let emotes = $derived(data.emotes)
 
@@ -270,95 +272,97 @@
 
 {#snippet rightSidebar()}
   <ResizablePaneGroup direction="vertical">
-    <ResizablePane minSize={10} collapsible collapsedSize={0} defaultSize={20}>
-      <ScrollArea>
-        <div class="p-4 flex flex-col gap-2">
-          {#each polls as { id, question, options, duration, start }, pollIndex (pollIndex)}
-            <Collapsible open={true} class="group">
-              <div
-                class="border rounded-md p-4 flex flex-col gap-2 group-data-[state=closed]:p-0 transition-[padding]"
-              >
-                <div class="flex">
-                  <div
-                    class="flex group-data-[state=open]:flex-col grow group-data-[state=closed]:gap-2 group-data-[state=closed]:p-2 transition-[padding] min-w-0"
-                  >
-                    <h1
-                      class="font-bold text-xs group-data-[state=open]:text-sm flex gap-2 group-data-[state=closed]:gap-1"
+    {#if polls.length}
+      <ResizablePane minSize={10} collapsible collapsedSize={0} defaultSize={20}>
+        <ScrollArea>
+          <div class="p-4 flex flex-col gap-2">
+            {#each polls as { id, question, options, duration, start }, pollIndex (pollIndex)}
+              <Collapsible open={true} class="group">
+                <div
+                  class="border rounded-md p-4 flex flex-col gap-2 group-data-[state=closed]:p-0 transition-[padding]"
+                >
+                  <div class="flex">
+                    <div
+                      class="flex group-data-[state=open]:flex-col grow group-data-[state=closed]:gap-2 group-data-[state=closed]:p-2 transition-[padding] min-w-0"
                     >
-                      <span class="text-muted-foreground">Poll</span>
-                      {#if (start + duration) * 1000 - now().getTime() > 0}
-                        <span class="font-mono">
-                          {Duration.fromMillis(
-                            (start + duration) * 1000 - now().getTime(),
-                          ).toFormat("mm:ss")}
-                        </span>
-                        <span>remaining</span>
-                      {:else}
-                        <span>Ended</span>
-                      {/if}
-                    </h1>
-                    <h2
-                      class="font-bold text-xs group-data-[state=closed]:[--spacing:0.2em] group-data-[state=open]:text-lg wrap-anywhere group-data-[state=closed]:truncate min-w-0"
+                      <h1
+                        class="font-bold text-xs group-data-[state=open]:text-sm flex gap-2 group-data-[state=closed]:gap-1"
+                      >
+                        <span class="text-muted-foreground">Poll</span>
+                        {#if (start + duration) * 1000 - now().getTime() > 0}
+                          <span class="font-mono">
+                            {Duration.fromMillis(
+                              (start + duration) * 1000 - now().getTime(),
+                            ).toFormat("mm:ss")}
+                          </span>
+                          <span>remaining</span>
+                        {:else}
+                          <span>Ended</span>
+                        {/if}
+                      </h1>
+                      <h2
+                        class="font-bold text-xs group-data-[state=closed]:[--spacing:0.2em] group-data-[state=open]:text-lg wrap-anywhere group-data-[state=closed]:truncate min-w-0"
+                      >
+                        <MessageContent fragments={parseMessage(question, emotes)} />
+                      </h2>
+                    </div>
+                    <CollapsibleTrigger
+                      class={cn(
+                        buttonVariants({ variant: "ghost", size: "sm" }),
+                        "group-data-[state=closed]:rounded-l-none",
+                      )}
                     >
-                      <MessageContent fragments={parseMessage(question, emotes)} />
-                    </h2>
+                      <ListChevronsUpDown class="group-data-[state=open]:hidden" />
+                      <ListChevronsDownUp class="hidden group-data-[state=open]:block" />
+                    </CollapsibleTrigger>
                   </div>
-                  <CollapsibleTrigger
-                    class={cn(
-                      buttonVariants({ variant: "ghost", size: "sm" }),
-                      "group-data-[state=closed]:rounded-l-none",
-                    )}
-                  >
-                    <ListChevronsUpDown class="group-data-[state=open]:hidden" />
-                    <ListChevronsDownUp class="hidden group-data-[state=open]:block" />
-                  </CollapsibleTrigger>
+                  <CollapsibleContent class="flex flex-col gap-2">
+                    <Separator />
+                    <div class="grow flex flex-col gap-1">
+                      {#each options as { text, percent }, optionIndex (optionIndex)}
+                        {#if percent !== undefined}
+                          <Button
+                            class="justify-start"
+                            size="sm"
+                            variant="outline"
+                            style="background: linear-gradient(to right, {colours[
+                              colour
+                            ]} {percent}%, transparent {percent}%) no-repeat padding-box"
+                          >
+                            <span class="truncate">
+                              <MessageContent fragments={parseMessage(text, emotes)} />
+                            </span>
+                            <span class="text-muted-foreground">
+                              {percent}%
+                            </span>
+                          </Button>
+                        {:else}
+                          <Button
+                            variant="outline"
+                            class="justify-start"
+                            size="sm"
+                            disabled={!data.user}
+                            onclick={() => {
+                              rtc?.poll.send(
+                                JSON.stringify({ type: "vote", poll: id, option: optionIndex }),
+                              )
+                            }}
+                          >
+                            <span class="truncate">
+                              <MessageContent fragments={parseMessage(text, emotes)} />
+                            </span>
+                          </Button>
+                        {/if}
+                      {/each}
+                    </div>
+                  </CollapsibleContent>
                 </div>
-                <CollapsibleContent class="flex flex-col gap-2">
-                  <Separator />
-                  <div class="grow flex flex-col gap-1">
-                    {#each options as { text, percent }, optionIndex (optionIndex)}
-                      {#if percent !== undefined}
-                        <Button
-                          class="justify-start"
-                          size="sm"
-                          variant="outline"
-                          style="background: linear-gradient(to right, {colours[
-                            colour
-                          ]} {percent}%, transparent {percent}%) no-repeat padding-box"
-                        >
-                          <span class="truncate">
-                            <MessageContent fragments={parseMessage(text, emotes)} />
-                          </span>
-                          <span class="text-muted-foreground">
-                            {percent}%
-                          </span>
-                        </Button>
-                      {:else}
-                        <Button
-                          variant="outline"
-                          class="justify-start"
-                          size="sm"
-                          disabled={!data.user}
-                          onclick={() => {
-                            rtc?.poll.send(
-                              JSON.stringify({ type: "vote", poll: id, option: optionIndex }),
-                            )
-                          }}
-                        >
-                          <span class="truncate">
-                            <MessageContent fragments={parseMessage(text, emotes)} />
-                          </span>
-                        </Button>
-                      {/if}
-                    {/each}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          {/each}
-        </div>
-      </ScrollArea>
-    </ResizablePane>
+              </Collapsible>
+            {/each}
+          </div>
+        </ScrollArea>
+      </ResizablePane>
+    {/if}
     <ResizableHandle />
     <ResizablePane
       class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"

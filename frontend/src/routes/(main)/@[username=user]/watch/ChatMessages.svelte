@@ -91,35 +91,38 @@
         {/if}
         <p class="wrap-anywhere grow">
           {#if message.type === "message"}
-            {@const displayName = (await server.user.user(message.username)).displayName}
-            <HoverCard>
-              <HoverCardTrigger style="color: {colours[message.colour]}">
-                {message.username}:
-              </HoverCardTrigger>
-              <HoverCardContent class="p-0">
-                <Button
-                  href={resolve("/(main)/@[username=user]", { username: message.username })}
-                  class="h-auto p-4 w-full"
-                  variant="ghost"
-                >
-                  <Avatar class="size-12">
-                    <AvatarImage
-                      src={server.user.avatar(message.username)}
-                      alt={message.username}
-                    />
-                    <AvatarFallback class="bg-muted" />
-                  </Avatar>
-                  <div class="flex flex-col grow">
-                    <div class="font-bold">
-                      {displayName || `@${message.username}`}
+            {#await server.user
+              .user(message.username)
+              .then((user) => user.displayName) then displayName}
+              <HoverCard>
+                <HoverCardTrigger style="color: {colours[message.colour]}">
+                  {message.username}:
+                </HoverCardTrigger>
+                <HoverCardContent class="p-0">
+                  <Button
+                    href={resolve("/(main)/@[username=user]", { username: message.username })}
+                    class="h-auto p-4 w-full"
+                    variant="ghost"
+                  >
+                    <Avatar class="size-12">
+                      <AvatarImage
+                        src={server.user.avatar(message.username)}
+                        alt={message.username}
+                      />
+                      <AvatarFallback class="bg-muted" />
+                    </Avatar>
+                    <div class="flex flex-col grow">
+                      <div class="font-bold">
+                        {displayName || `@${message.username}`}
+                      </div>
+                      {#if displayName}
+                        <div class="text-sm text-muted-foreground">@{message.username}</div>
+                      {/if}
                     </div>
-                    {#if displayName}
-                      <div class="text-sm text-muted-foreground">@{message.username}</div>
-                    {/if}
-                  </div>
-                </Button>
-              </HoverCardContent>
-            </HoverCard>
+                  </Button>
+                </HoverCardContent>
+              </HoverCard>
+            {/await}
           {/if}
           {#if message.type === "system" || !message.filtered}
             <Fragments {fragments} />
@@ -190,8 +193,8 @@
       </SheetHeader>
       <ChatMessages
         {user}
-        replying={null}
-        chatInput={null}
+        bind:replying
+        {chatInput}
         messages={messages.filter(
           (other) => other.type === "message" && other.username == chatLogs,
         )}
