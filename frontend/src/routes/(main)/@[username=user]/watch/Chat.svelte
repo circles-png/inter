@@ -12,6 +12,8 @@
   import type { User } from "../../../../models/user"
   import { onMount } from "svelte"
   import { parseMessage } from "$lib/utils.svelte"
+  import Clock4 from "@lucide/svelte/icons/clock-4"
+  import { Toggle } from "$lib/components/ui/toggle"
 
   let {
     rtc = $bindable(),
@@ -28,6 +30,7 @@
   let suggestions = $state<[string, [string, boolean]][]>([])
   let chatInput: null | HTMLInputElement = $state(null)
   let replying: Extract<Message, { type: "message" }> | null = $state(null)
+  let showTimes: boolean = $state(false)
 
   const updateSuggestions = () => {
     const word = chatInput!.value.slice(0, chatInput!.selectionEnd!).split(/\s/).pop()
@@ -67,7 +70,20 @@
   })
 </script>
 
-<ChatMessages bind:messages {user} bind:replying {chatInput} />
+<div class="flex px-4 items-center">
+  <h1 class="grow text-xl font-bold">Live chat</h1>
+  <Tooltip>
+    <TooltipTrigger>
+      {#snippet child({ props })}
+        <Toggle size="sm" bind:pressed={showTimes} {...props}>
+          <Clock4 />
+        </Toggle>
+      {/snippet}
+    </TooltipTrigger>
+    <TooltipContent>Timestamps</TooltipContent>
+  </Tooltip>
+</div>
+<ChatMessages bind:messages {user} bind:replying {chatInput} {showTimes} />
 {#if user}
   <div class="px-4 relative">
     <div class="flex flex-col">

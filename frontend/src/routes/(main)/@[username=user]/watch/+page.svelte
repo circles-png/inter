@@ -195,7 +195,7 @@
 
 {#if isMobile.current}
   {@render stream()}
-  <div class="flex flex-col grow min-h-0">{@render chat()}</div>
+  <div class="flex flex-col grow min-h-0">{@render rightSidebar()}</div>
 {:else}
   <ResizablePaneGroup direction="horizontal" class="flex grow">
     <ResizablePane minSize={50}>
@@ -211,7 +211,7 @@
       collapsedSize={0}
       minSize={20}
     >
-      {@render chat()}
+      {@render rightSidebar()}
     </ResizablePane>
   </ResizablePaneGroup>
 {/if}
@@ -268,7 +268,7 @@
   </div>
 {/snippet}
 
-{#snippet chat()}
+{#snippet rightSidebar()}
   <ResizablePaneGroup direction="vertical">
     <ResizablePane minSize={10} collapsible collapsedSize={0} defaultSize={20}>
       <ScrollArea>

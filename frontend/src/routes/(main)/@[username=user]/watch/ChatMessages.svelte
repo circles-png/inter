@@ -26,12 +26,14 @@
     replying = $bindable(),
     chatInput,
     inChatLogs = false,
+    showTimes,
   }: {
     messages: Message[]
     user: User | null
     replying: Extract<Message, { type: "message" }> | null
     chatInput: HTMLInputElement | null
     inChatLogs?: boolean
+    showTimes: boolean
   } = $props()
   let messagesContainer: HTMLDivElement
   let chatLogs: string | null = $state(null)
@@ -79,14 +81,14 @@
             && message.id === replying?.id
             && "border-l-4 border-green-500 bg-green-500/20",
           message.type == "message" && message.filtered && "opacity-50 has-hover:opacity-100",
-          message.type == "system" && "text-xs text-muted-foreground [--spacing:0.2em]",
+          message.type == "system" && "text-xs text-muted-foreground *:[--spacing:0.2em]",
         ]}
       >
-        <span class="text-xs text-muted-foreground">
-          {#if message.type == "message"}
+        {#if message.type == "message" && showTimes}
+          <span class="text-xs text-muted-foreground">
             {message.time.toLocaleTimeString()}
-          {/if}
-        </span>
+          </span>
+        {/if}
         <p class="wrap-anywhere grow">
           {#if message.type === "message"}
             {@const displayName = (await server.user.user(message.username)).displayName}
@@ -194,6 +196,7 @@
           (other) => other.type === "message" && other.username == chatLogs,
         )}
         inChatLogs
+        {showTimes}
       />
     </SheetContent>
   </Sheet>
