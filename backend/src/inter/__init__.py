@@ -1,6 +1,7 @@
 from logging import getLogger
 import logging
 from pathlib import Path
+from socket import AF_INET, SOCK_DGRAM, socket
 
 import httpx
 
@@ -15,7 +16,25 @@ def create_app():
     from inter.common import app
 
     load_dotenv()
-    cors(app, allow_origin="http://localhost:5001", allow_credentials=True)
+    cors(
+        app,
+        allow_origin=[
+            "http://localhost:5001",
+            *(
+                [
+                    (
+                        lambda socket: f"http://{(
+                            socket.connect(("8.8.8.8", 80)),
+                            socket.getsockname(),
+                        )[1][0]}:5001"
+                    )(socket(AF_INET, SOCK_DGRAM))
+                ]
+                if not environ.get("PROD")
+                else []
+            ),
+        ],
+        allow_credentials=True,
+    )
     app.register_error_handler(404, lambda _: ("", 404))
     app.register_error_handler(401, lambda _: ("", 401))
 

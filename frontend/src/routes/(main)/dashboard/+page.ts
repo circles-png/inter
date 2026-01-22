@@ -15,5 +15,6 @@ export const load: PageLoad = async ({ parent, fetch }) => {
     emotes: await server.emotes(),
     stream: await server.user.stream(user.username),
     ...(await server.user.user(user.username)),
+    notify: await server.user.getNotify(user.username),
   }
 }

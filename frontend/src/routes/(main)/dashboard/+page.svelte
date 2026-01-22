@@ -72,13 +72,14 @@
         user: data.user,
         emotes: data.emotes,
         stream: data.stream,
-        streamer: {
+        profile: {
           colour: data.user.colour,
           displayName: data.user.displayName,
           followers: data.followers,
           following: data.following,
           username: data.user.username,
         },
+        notify: data.notify,
       }}
     />
   </div>

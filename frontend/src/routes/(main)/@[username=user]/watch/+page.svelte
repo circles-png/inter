@@ -33,11 +33,9 @@
   import MessageContent from "./Fragments.svelte"
   import Chat from "./Chat.svelte"
   import type { Message, MessageId } from "../../../../models/message.ts"
-  import { page } from "$app/state"
 
   let { data } = $props()
-  let { displayName, colour } = $derived(data.profile)
-  let username = $derived(page.params.username || "")
+  let { displayName, colour, username } = $derived(data.profile)
   let { title, game, start, viewers } = $derived(data.stream)
   let emotes = $derived(data.emotes)
 

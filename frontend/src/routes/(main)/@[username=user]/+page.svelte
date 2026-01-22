@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation"
   import { resolve } from "$app/paths"
-  import { page } from "$app/state"
   import { Avatar, AvatarFallback, AvatarImage } from "$lib/components/ui/avatar"
   import BellRing from "@lucide/svelte/icons/bell-ring"
   import BellOff from "@lucide/svelte/icons/bell-off"
@@ -24,7 +23,7 @@
   const profile = $derived(data.profile)
   const following = $derived(data.following)
   const stream = $derived(data.stream)
-  const username = $derived(page.params.username || "")
+  const username = $derived(profile.username)
   const avatar = $derived(server.user.avatar(username))
   let updatingNotify = $state(false)
 </script>
