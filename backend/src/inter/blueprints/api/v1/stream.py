@@ -50,40 +50,57 @@ async def start_stream():
         connection = RTCPeerConnection(
             RTCConfiguration([RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
         )
-        stream = streams[user.id]
+        user_id = user.id
+        stream = streams[user_id]
         stream.connection = connection
-        stream.start = datetime.now(timezone.utc).timestamp()
-        for follower in await user.get_notified(session):
-            notify = await follower.get_notify(user, session)
-            if not notify:
-                continue
-            endpoint, p256dh, auth = notify
-            try:
-                await webpush_async(
-                    {
-                        "endpoint": endpoint,
-                        "keys": {
-                            "p256dh": base64.urlsafe_b64encode(p256dh),
-                            "auth": base64.urlsafe_b64encode(auth),
-                        },
-                    },
-                    json.dumps(
-                        {
-                            "displayName": user.display_name,
-                            "username": user.username,
-                            "url": f"http://{request.host}/@{user.username}/watch",
-                        }
-                    ),
-                    environ["PRIVATE_VAPID_KEY"],
-                    {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
-                )
-            except WebPushException as exception:
-                print(repr(exception))
-                await follower.set_notify(user, session)
 
         @connection.on("connectionstatechange")
         async def _():
             print(f"tx connectionstatechange", connection.connectionState)
+            if connection.connectionState == "connected":
+                stream.start = datetime.now(timezone.utc).timestamp()
+                async with get_session() as session, session.begin():
+                    user = await session.get(User, user_id)
+                    if not user:
+                        return
+                    for client in stream.clients:
+                        if client.chat:
+                            client.chat.send(
+                                json.dumps(
+                                    {
+                                        "type": "system",
+                                        "message": f"{user.username} is live!",
+                                    }
+                                )
+                            )
+
+                    for follower in await user.get_notified(session):
+                        notify = await follower.get_notify(user, session)
+                        if not notify:
+                            continue
+                        endpoint, p256dh, auth = notify
+                        try:
+                            await webpush_async(
+                                {
+                                    "endpoint": endpoint,
+                                    "keys": {
+                                        "p256dh": base64.urlsafe_b64encode(p256dh),
+                                        "auth": base64.urlsafe_b64encode(auth),
+                                    },
+                                },
+                                json.dumps(
+                                    {
+                                        "displayName": user.display_name,
+                                        "username": user.username,
+                                        "url": f"http://{request.host}/@{user.username}/watch",
+                                    }
+                                ),
+                                environ["PRIVATE_VAPID_KEY"],
+                                {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
+                            )
+                        except WebPushException as exception:
+                            print(repr(exception))
+                            await follower.set_notify(user, session)
 
             if connection.connectionState == "closed":
                 if stream.video:

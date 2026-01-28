@@ -6,7 +6,6 @@ import aiortc.contrib.media
 from inter.models.client import Client
 from inter.models.poll import Poll
 
-
 class Stream:
     def __init__(self) -> None:
         self.connection: RTCPeerConnection | None = None
@@ -14,8 +13,6 @@ class Stream:
         self.audio: RemoteStreamTrack | None = None
         self.clients: list[Client] = []
         self.relay = aiortc.contrib.media.MediaRelay()
-        self.title: str = ""
-        self.game: str = ""
         self.start: float | None = None
         self.chat: deque[str] = deque(maxlen=100)
         self.polls: list[Poll] = []

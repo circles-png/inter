@@ -126,11 +126,10 @@ async def stream(username: str):
         if not user:
             return quart.Response(status=NOT_FOUND)
         stream = streams[user.id]
-
         return quart.jsonify(
             {
-                "title": stream.title,
-                "game": stream.game,
+                "title": user.stream_title,
+                "game": user.stream_game,
                 "start": stream.start,
                 "viewers": len(stream.clients) if stream.connection else None,
             }

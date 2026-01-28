@@ -39,7 +39,7 @@
   let { title, game, start, viewers } = $derived(data.stream)
   let emotes = $derived(data.emotes)
 
-  let video: null | HTMLVideoElement = $state(null)
+  let video: HTMLVideoElement
   let rtc: { chat: RTCDataChannel; poll: RTCDataChannel; connection: RTCPeerConnection } | null =
     $state(null)
   let elapsed = useElapsed(() => start)
@@ -66,7 +66,6 @@
   })
 
   onMount(() => {
-    if (video) video.srcObject = new MediaStream()
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     })
@@ -107,10 +106,7 @@
         )
       }
       connection.ontrack = (event) => {
-        if (video && video.srcObject && video.srcObject instanceof MediaStream) {
-          video.srcObject.addTrack(event.track)
-          video.play()
-        }
+        video.srcObject = event.streams[0]
       }
       connection.onnegotiationneeded = async () => {
         console.log("onnegotiationneeded")
@@ -220,22 +216,13 @@
   <div class="flex flex-col relative md:p-2">
     <video
       muted
+      controls
       playsinline
+      autoplay
       class="aspect-video md:rounded-md"
       style:background-color={colours[colour]}
       bind:this={video}
     ></video>
-    {#if video}
-      <Button
-        class="absolute top-2 left-2 md:top-6 md:left-6"
-        variant="secondary"
-        onclick={() => {
-          if (video) video.muted = false
-        }}
-      >
-        Unmute
-      </Button>
-    {/if}
     <div class="flex text-sm p-4 gap-4">
       <Avatar class="size-12">
         <AvatarImage src={server.user.avatar(username)} />
