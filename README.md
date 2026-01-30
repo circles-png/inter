@@ -39,10 +39,10 @@ Modify the public key in `./frontend/.env` to match the generated public key.
 Set backend environment variables by writing the following to `./backend/.env`:
 
 ```env
-EMOTE_SET =
-DATABASE_PATH =
-STREAM_WS_AUTH_KEY =
-PRIVATE_VAPID_KEY =
+EMOTE_SET=
+DATABASE_PATH=
+STREAM_WS_AUTH_KEY=
+PRIVATE_VAPID_KEY=
 ```
 
 and appending the following information on each line respectively:
