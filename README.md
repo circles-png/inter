@@ -65,7 +65,7 @@ Run the following command to build an image and start the container.
 docker compose up --build
 ```
 
-Navigate to `localhost` or the server machine's internal LAN IP address to access the PWA.
+Navigate to `localhost` or the server machine's internal LAN IP address at port 5001 to access the PWA.
 
 ## Internals
 

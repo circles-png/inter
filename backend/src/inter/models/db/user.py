@@ -42,6 +42,21 @@ class User(db.Model):
             return abort(NOT_FOUND)
         return user
 
+    @staticmethod
+    async def from_session_optional(sql_session: AsyncSession[Any]) -> "User | None":
+        from inter.models.db.session import Session
+
+        token = request.cookies.get("session_token")
+        if not token:
+            return None
+        session = await Session.validate_token(token, sql_session)
+        if not session:
+            return None
+        user = await User.find_by_id(sql_session, session.user)
+        if not user:
+            return None
+        return user
+
     async def follow(self, user: "User", session: AsyncSession[Any]) -> None:
         from inter.models.db.follow import Follow
 

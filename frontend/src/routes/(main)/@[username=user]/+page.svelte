@@ -151,7 +151,11 @@
   {#if stream.start}
     <div class="flex flex-col gap-4">
       <div class="font-bold text-lg">Currently Streaming</div>
-      <a class="flex flex-col gap-2" href={resolve("/(main)/@[username=user]/watch", { username })}>
+      <a
+        class="flex flex-col gap-2"
+        href={resolve("/(main)/@[username=user]/watch", { username })}
+        data-sveltekit-reload
+      >
         <img src={server.user.streamPreview(username)} alt={stream.title} class="w-80 rounded-md" />
         <div class="flex flex-col">
           <div class="font-bold">{stream.title}</div>

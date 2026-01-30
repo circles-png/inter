@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@plugin '@tailwindcss/forms';
 
 :root {
   --radius: 0.625rem;

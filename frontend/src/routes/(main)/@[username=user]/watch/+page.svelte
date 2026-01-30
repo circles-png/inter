@@ -72,22 +72,11 @@
 
     let ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
     ws.onmessage = async (event) => {
-      const data:
-        | { type: "connect"; sdp: RTCSessionDescriptionInit }
-        | { type: "renegotiate"; sdp: RTCSessionDescriptionInit } = JSON.parse(event.data)
+      const data: { type: "connect"; sdp: RTCSessionDescriptionInit } = JSON.parse(event.data)
 
       if (data.type == "connect") {
         const answer = data.sdp
         await connection.setRemoteDescription(answer)
-        ws.send(JSON.stringify({ type: "tracks" }))
-      }
-
-      if (data.type == "renegotiate") {
-        const offer = data.sdp
-        await connection.setRemoteDescription(offer)
-        const answer = await connection.createAnswer()
-        await connection.setLocalDescription(answer)
-        ws.send(JSON.stringify({ type: "renegotiate", sdp: connection.localDescription }))
       }
     }
 
@@ -106,7 +95,10 @@
         )
       }
       connection.ontrack = (event) => {
-        video.srcObject = event.streams[0]
+        console.log("track", event.streams[0])
+        if (!video.srcObject) {
+          video.srcObject = event.streams[0]
+        }
       }
       connection.onnegotiationneeded = async () => {
         console.log("onnegotiationneeded")
@@ -178,6 +170,9 @@
             break
         }
       }
+
+      connection.addTransceiver("video", { direction: "recvonly" })
+      connection.addTransceiver("audio", { direction: "recvonly" })
 
       rtc = { chat, poll, connection }
     }

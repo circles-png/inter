@@ -1,8 +1,9 @@
+from asyncio import set_event_loop_policy
 from logging import getLogger
 import logging
 from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, socket
-
+import uvloop
 import httpx
 
 
@@ -46,6 +47,7 @@ def create_app():
             )
 
     getLogger("hypercorn.access").addFilter(filter=Filter())
+    set_event_loop_policy(uvloop.EventLoopPolicy())
 
     @app.route("/", defaults={"path": ""}, methods=["GET", "POST"])
     @app.route("/<path:path>", methods=["GET", "POST"])
