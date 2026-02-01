@@ -1,3 +1,4 @@
+from asyncio import streams
 from http.client import NOT_FOUND
 from os import environ
 import httpx
@@ -5,7 +6,7 @@ import quart
 from sqlalchemy import select
 
 from inter.blueprints.api.v1.auth import auth
-from inter.blueprints.api.v1.stream import stream
+from inter.blueprints.api.v1.stream import stream, streams
 from inter.blueprints.api.v1.user import user
 from inter.blueprints.api.v1.user_self import user_self
 from inter.models.db.follow import Follow
@@ -73,6 +74,22 @@ async def search_users(query: str):
                     },
                 ]
                 if group["results"]
+            ]
+        )
+
+
+@stream.route("/homepage", methods=["GET"])
+async def homepage():
+    async with get_session() as session, session.begin():
+        return quart.jsonify(
+            [
+                streamer.username
+                for streamer in [
+                    await session.get(User, streamer)
+                    for streamer, stream in streams.items()
+                    if stream.connection
+                ]
+                if streamer
             ]
         )
 
