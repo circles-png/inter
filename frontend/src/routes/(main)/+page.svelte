@@ -1,27 +1,32 @@
 <script lang="ts">
-  import { Skeleton } from "$lib/components/ui/skeleton"
+  import { resolve } from "$app/paths"
+  import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "$lib/components/ui/empty"
+  import { server } from "$lib/utils.svelte.js"
+  let { data } = $props()
+  let streams = $derived(data.streams)
 </script>
 
 <main class="p-2 flex flex-col gap-2 overflow-y-auto grow pr-0">
-  {#each { length: 6 }}
-    <div class="flex flex-col gap-2">
-      <Skeleton class="w-50 h-6" />
-      <div class="flex gap-2 overflow-x-auto pb-1">
-        {#each { length: 7 }}
-          <div class="flex flex-col gap-2 grow">
-            <Skeleton class="aspect-video w-96" />
-            <div class="flex gap-2">
-              <Skeleton class="size-10 rounded-full" />
-              <div class="flex flex-col gap-1 grow">
-                <Skeleton class="w-20 h-4" />
-                <Skeleton class="w-30 h-3" />
-                <Skeleton class="w-15 h-3" />
-              </div>
-              <Skeleton class="md:w-10 md:h-3 rounded-full" />
-            </div>
-          </div>
-        {/each}
+  {#each streams as { username, title, game, viewers } (username)}
+    <a
+      class="flex flex-col gap-2"
+      href={resolve("/(main)/@[username=user]/watch", { username })}
+      data-sveltekit-reload
+    >
+      <img src={server.user.streamPreview(username)} alt={title} class="w-80 rounded-md" />
+      <div class="flex flex-col">
+        <div class="font-bold">{title}</div>
+        <div class="text-sm text-muted-foreground">
+          {game} · {viewers} viewers
+        </div>
       </div>
-    </div>
+    </a>
+  {:else}
+    <Empty>
+      <EmptyHeader>
+        <EmptyTitle>No one is currently live.</EmptyTitle>
+        <EmptyDescription>Stream now to connect with people all over Inter.</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   {/each}
 </main>

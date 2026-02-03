@@ -207,6 +207,12 @@ export function serverWithFetch(f: typeof window.fetch) {
         )
       },
     },
+    stream: {
+      ...createBase(f, `${apiBase}/stream`),
+      async homepage(): Promise<string[]> {
+        return (await this.get("/homepage")).json()
+      },
+    },
   }
 }
 
