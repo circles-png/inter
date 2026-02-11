@@ -144,7 +144,10 @@ async def _():
         {
             emote["name"]: (
                 next(
-                    image["url"]
+                    image["url"].replace(
+                        "https://cdn.7tv.app/",
+                        "https://em.circles-png.workers.dev/cdn.7tv.app/",
+                    )
                     for image in emote["emote"]["images"]
                     if image["url"].endswith("2x.webp")
                 ),
@@ -152,14 +155,14 @@ async def _():
             )
             for emote in [
                 *httpx.post(
-                    f"https://7tv.io/v4/gql",
+                    f"https://em.circles-png.workers.dev/7tv.io/v4/gql",
                     json={
                         "query": CUSTOM_EMOTE_SET_QUERY,
                         "variables": {"set": environ["EMOTE_SET"]},
                     },
                 ).json()["data"]["emoteSets"]["emoteSet"]["emotes"]["items"],
                 *httpx.post(
-                    f"https://7tv.io/v4/gql",
+                    f"https://em.circles-png.workers.dev/7tv.io/v4/gql",
                     json={
                         "query": GLOBAL_EMOTE_SET_QUERY,
                     },
