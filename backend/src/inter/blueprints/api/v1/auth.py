@@ -1,3 +1,8 @@
+"""
+Authentication endpoints for the Inter API, including signing up, logging in, and updating user
+information.
+"""
+
 from hashlib import sha256
 from http.client import BAD_REQUEST, CONFLICT, CREATED, OK, UNAUTHORIZED
 from os import environ
@@ -15,6 +20,9 @@ auth = quart.Blueprint("auth", __name__, url_prefix="/auth/")
 
 @auth.route("/available/<string:username>", methods=["GET"])
 async def available(username: str):
+    """
+    Check if a user with the given username exists.
+    """
     async with get_session() as session, session.begin():
         return quart.Response(
             status=OK if await User.available(session, username) else CONFLICT
@@ -23,6 +31,9 @@ async def available(username: str):
 
 @auth.route("/signup", methods=["POST"])
 async def signup():
+    """
+    Create a new user with the given username and password.
+    """
     data = await request.get_json()
     username: str = data.get("username")
     password: str = data.get("password")
@@ -49,7 +60,7 @@ async def signup():
         if not await User.available(sql_session, username):
             return quart.Response(f"'{username}' is not available.", status=CONFLICT)
         user = await User.add(sql_session, username, "", password)
-        _, token = await Session.create(user.id,sql_session)
+        _, token = await Session.create(user.id, sql_session)
     response = quart.Response(status=CREATED)
     response.set_cookie(
         "session_token",
@@ -63,6 +74,9 @@ async def signup():
 
 @auth.route("/user", methods=["GET"])
 async def user():
+    """
+    Get the currently authenticated user's information.
+    """
     async with get_session() as sql_session, sql_session.begin():
         user = await User.from_session(sql_session)
         return quart.jsonify(
@@ -78,6 +92,9 @@ async def user():
 
 @auth.route("/login", methods=["POST"])
 async def login():
+    """
+    Authenticate a user with the given username and password.
+    """
     async with get_session() as sql_session, sql_session.begin():
         data = await request.get_json()
         username = data.get("username")
@@ -104,13 +121,18 @@ async def login():
 
 @auth.route("/update", methods=["POST"])
 async def update():
+    """
+    Update the currently authenticated user's username, display name, and colour.
+    """
     async with get_session() as sql_session, sql_session.begin():
         user = await User.from_session(sql_session)
         data = await request.get_json()
         username: str | None = data.get("username")
         if username and username != user.username:
             if not await User.available(sql_session, username):
-                return quart.Response(f"'{username}' is not available.", status=CONFLICT)
+                return quart.Response(
+                    f"'{username}' is not available.", status=CONFLICT
+                )
             if re.match("^[a-z0-9_]*$", username) is None:
                 return quart.Response(
                     "Choose a username with only lowercase letters, numbers, and underscores.",
@@ -143,6 +165,9 @@ async def update():
 
 @auth.route("/update/stream-token", methods=["POST"])
 async def update_stream_token():
+    """
+    Regenerate the currently authenticated user's stream token, which is used to authenticate the user for streaming endpoints.
+    """
     async with get_session() as sql_session, sql_session.begin():
         user = await User.from_session(sql_session)
         user.stream_token = generate_secure_random_string()
@@ -151,6 +176,9 @@ async def update_stream_token():
 
 @auth.route("/update/avatar", methods=["POST"])
 async def update_avatar():
+    """
+    Update the currently authenticated user's avatar.
+    """
     async with get_session() as sql_session, sql_session.begin():
         user = await User.from_session(sql_session)
         form: MultiDict[str, FileStorage] = await request.files  # type: ignore
@@ -167,6 +195,9 @@ async def update_avatar():
 
 @auth.route("/update/password", methods=["POST"])
 async def update_password():
+    """
+    Update the currently authenticated user's password.
+    """
     async with get_session() as sql_session, sql_session.begin():
         user = await User.from_session(sql_session)
         data = await request.get_json()

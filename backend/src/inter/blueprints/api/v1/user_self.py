@@ -1,3 +1,8 @@
+"""
+Endpoints for managing and querying the currently authenticated user, including their followers and
+following, and updating their stream information.
+"""
+
 from http.client import OK
 from typing import Any
 import quart
@@ -11,6 +16,9 @@ user_self = quart.Blueprint("self", __name__, url_prefix="/self")
 
 @user_self.route("/followers", methods=["GET"])
 async def self_followers():
+    """
+    Get the list of followers for the currently authenticated user.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session(session)
         return quart.jsonify(
@@ -23,6 +31,9 @@ async def self_followers():
 
 @user_self.route("/following", methods=["GET"])
 async def self_following():
+    """
+    Get the list of users that the currently authenticated user is following.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session(session)
         return quart.jsonify(
@@ -35,6 +46,9 @@ async def self_following():
 
 @user_self.route("/stream/update", methods=["POST"])
 async def update_stream():
+    """
+    Update the currently authenticated user's stream information.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session(session)
         data: dict[str, Any] = await quart.request.get_json()

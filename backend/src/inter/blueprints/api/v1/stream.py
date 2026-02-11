@@ -1,3 +1,8 @@
+"""
+Endpoints for managing streams, including starting a stream, connecting to a stream, and managing
+chat and polls through WebSockets and WebRTC.
+"""
+
 from asyncio import create_task, gather, sleep
 import base64
 from datetime import datetime, timedelta, timezone
@@ -38,6 +43,10 @@ streams: dict[int, Stream] = {}
 
 @stream.route("/", methods=["POST", "DELETE"])
 async def start_stream():
+    """
+    Start a stream for the user associated with the given stream token. Implements WHIP for
+    compatibility with streaming software.
+    """
     from inter.models.db.user import User
 
     async with get_session() as session, session.begin():
@@ -171,21 +180,21 @@ async def start_stream():
             },
         )
 
-
-@stream.route("/<string:username>/tx", methods=["POST", "PATCH"])
-async def stream_tx(username: str):
-    print("TX endpoint called:", username)
-    return quart.Response(status=OK)
-
-
 @stream.route("/<string:username>/tx", methods=["DELETE"])
 async def stream_tx_delete(username: str):
+    """
+    Receive a request to delete the stream for the user with the given username.
+    """
+    # TODO authenticate this route and implement it
     print("TX endpoint deleted at username:", username)
     return quart.Response(status=OK)
 
 
 @stream.route("/auth", methods=["GET"])
 async def ws_auth():
+    """
+    Authenticate a WebSocket connection for streaming by generating a token.
+    """
     from inter.models.db.user import User
 
     async with get_session() as session, session.begin():
@@ -201,6 +210,14 @@ async def ws_auth():
 
 @stream.websocket("/<string:username>/ws")
 async def ws(username: str):
+    """
+    Handle a client's WebSocket connection for watching a stream.
+    Every message from the client is a JSON object with a "type" field matching one of
+    - "connect": Authenticate the client if a token is provided, establish a WebRTC connection, and
+        manage their chat and poll data channels. Both data channels are created by the client
+        and identified by their label ("chat" and "poll" respectively).
+    - "candidate": Add the provided ICE candidate to the client's WebRTC connection on this side.
+    """
     from inter.models.db.user import User
 
     async with get_session() as session, session.begin():
@@ -212,6 +229,9 @@ async def ws(username: str):
     candidates: list[RTCIceCandidate] = []
 
     async def rx():
+        """
+        Receive task responsible for handling messages from the client through its WebSocket.
+        """
         nonlocal client, stream
         while True:
             data = await websocket.receive_json()
@@ -260,6 +280,10 @@ async def ws(username: str):
                                 stream.clients.remove(new_client)
 
                     async def manage_chat(channel: RTCDataChannel):
+                        """
+                        Manage the client's chat data channel by relaying messages between the
+                        client and the stream's chat.
+                        """
                         new_client.chat = channel
                         for message in [*stream.chat]:
                             channel.send(message)
@@ -301,9 +325,17 @@ async def ws(username: str):
                                     client.chat.send(message)
 
                     async def manage_polls(channel: RTCDataChannel):
+                        """
+                        Manage the client's poll data channel by updating the client with the
+                        state of current polls and replicating votes between clients.
+                        """
                         new_client.poll = channel
 
                         def update(client: Client = new_client):
+                            """
+                            Update the client with the current state of polls, including vote counts
+                            if the poll is finished or if the client is authorised to see them.
+                            """
                             if not client.poll:
                                 return
 
@@ -374,15 +406,27 @@ async def ws(username: str):
                         @channel.on("message")
                         async def _(data: str):
                             class Update(TypedDict):
+                                """
+                                Request to receive an update on the current polls.
+                                """
+
                                 type: Literal["update"]
 
                             class Start(TypedDict):
+                                """
+                                Request to start a new poll.
+                                """
+
                                 type: Literal["start"]
                                 question: str
                                 options: list[str]
                                 duration: float
 
                             class Vote(TypedDict):
+                                """
+                                Request to vote on an existing poll.
+                                """
+
                                 type: Literal["vote"]
                                 poll: str
                                 option: int
@@ -518,6 +562,9 @@ async def ws(username: str):
                     pass
 
     async def tx():
+        """
+        Transmit task responsible for sending messages to the client through its WebSocket.
+        """
         while True:
             if client:
                 message = await client.tx_queue.get()

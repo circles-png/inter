@@ -1,3 +1,7 @@
+"""
+Endpoints for managing and querying users.
+"""
+
 from http.client import BAD_REQUEST, NO_CONTENT, NOT_FOUND, OK
 from io import BytesIO
 import PIL
@@ -15,6 +19,10 @@ user = quart.Blueprint("user", __name__, url_prefix="/user/<string:username>")
 
 @user.route("/avatar", methods=["GET"])
 async def avatar(username: str):
+    """
+    Get the avatar for the user with the given username. Return Not Found if the user does not exist
+    or No Content if the user does not have an avatar.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
@@ -27,6 +35,9 @@ async def avatar(username: str):
 
 @user.route("/", methods=["GET"])
 async def get_user(username: str):
+    """
+    Get information about the user with the given username.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
@@ -44,6 +55,9 @@ async def get_user(username: str):
 
 @user.route("/follow", methods=["POST"])
 async def follow(username: str):
+    """
+    Follow the user with the given username.
+    """
     async with get_session() as session, session.begin():
         followee = await User.find_by_username(session, username)
         if not followee:
@@ -55,6 +69,9 @@ async def follow(username: str):
 
 @user.route("/unfollow", methods=["POST"])
 async def unfollow(username: str):
+    """
+    Unfollow the user with the given username.
+    """
     async with get_session() as session, session.begin():
         follower = await User.from_session(session)
         followee = await User.find_by_username(session, username)
@@ -66,6 +83,9 @@ async def unfollow(username: str):
 
 @user.route("/followers", methods=["GET"])
 async def followers(username: str):
+    """
+    Get the number of followers for the user with the given username.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
@@ -75,6 +95,9 @@ async def followers(username: str):
 
 @user.route("/following", methods=["GET"])
 async def following(username: str):
+    """
+    Get the number of users that the user with the given username is following.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
@@ -83,6 +106,10 @@ async def following(username: str):
 
 @user.post("/notify")
 async def notify(username: str):
+    """
+    Set the currently authenticated user's notification settings for the user with the given
+    username. Uses Web Push and VAPID to send notifications and authenticate the client.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session(session)
         followee = await User.find_by_username(session, username)
@@ -110,6 +137,10 @@ async def notify(username: str):
 
 @user.get("/notify")
 async def get_notify(username: str):
+    """
+    Get the currently authenticated user's notification settings for the user with the given
+    username.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session(session)
         followee = await User.find_by_username(session, username)
@@ -121,6 +152,9 @@ async def get_notify(username: str):
 
 @user.route("/stream", methods=["GET"])
 async def stream(username: str):
+    """
+    Get the stream information for the user with the given username.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
@@ -138,6 +172,9 @@ async def stream(username: str):
 
 @user.route("/stream/preview", methods=["GET"])
 async def stream_preview(username: str):
+    """
+    Get an image preview of the stream for the user with the given username.
+    """
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
