@@ -29,6 +29,7 @@ jobs:
           cd frontend
           pnpm i --frozen-lockfile
           pnpm run build
+          rm -rf node_modules
       - uses: actions/upload-artifact@v4
         with:
           path: .
