@@ -12,6 +12,9 @@ from sqlalchemy.orm import mapped_column, Mapped
 
 
 class Session(db.Model):
+    """
+    Model for user sessions.
+    """
     __tablename__ = "sessions"
     id: Mapped[str] = mapped_column(primary_key=True, nullable=False)
     secret_hash: Mapped[bytes] = mapped_column(nullable=False)
@@ -24,6 +27,9 @@ class Session(db.Model):
     async def create(
         user_id: int, sql_session: AsyncSession[Any]
     ) -> tuple["Session", str]:
+        """
+        Create a new session for the user with the given ID and return the session and its token.
+        """
         id = generate_secure_random_string()
         secret = generate_secure_random_string()
         token = f"{id}.{secret}"
@@ -41,6 +47,9 @@ class Session(db.Model):
     async def validate_token(
         token: str, sql_session: AsyncSession[Any]
     ) -> "Session | None":
+        """
+        Validate the given session token and return the corresponding session if valid.
+        """
         parts = token.split(".")
         if len(parts) != 2:
             return None
@@ -55,6 +64,9 @@ class Session(db.Model):
 
     @staticmethod
     async def get(session_id: str, sql_session: AsyncSession[Any]) -> "Session | None":
+        """
+        Get the session with the given ID, checking its expiration.
+        """
         session = await sql_session.get(Session, session_id)
         if not session:
             return None
@@ -67,4 +79,7 @@ class Session(db.Model):
 
     @staticmethod
     async def delete(session_id: str, sql_session: AsyncSession[Any]) -> None:
+        """
+        Delete the session with the given ID.
+        """
         await sql_session.delete(await sql_session.get(Session, session_id))

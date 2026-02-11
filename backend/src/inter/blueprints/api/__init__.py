@@ -1,4 +1,9 @@
-from asyncio import streams
+"""
+Base API blueprint for Inter organising general or miscellaneous endpoints, with sub-blueprints for
+authentication, user management, and stream management. The API is versioned at /api/v1/ to allow
+for a different system update method and to preserve backwards compatibility.
+"""
+
 from http.client import NOT_FOUND
 from os import environ
 import httpx
@@ -18,6 +23,9 @@ api = quart.Blueprint("api", __name__, url_prefix="/api/v1/")
 
 @api.route("/random", methods=["GET"])
 async def random():
+    """
+    Get a random username.
+    """
     async with get_session() as session, session.begin():
         user = await User.choice(session)
     if not user:
@@ -27,6 +35,10 @@ async def random():
 
 @api.route("/search/<string:query>", methods=["GET"])
 async def search_users(query: str):
+    """
+    Search for users with the given query in their username or display name. If the user is
+    authenticated, return followed users in a separate group.
+    """
     async with get_session() as session, session.begin():
         user = await User.from_session_optional(session)
         following = (
@@ -80,6 +92,9 @@ async def search_users(query: str):
 
 @stream.route("/homepage", methods=["GET"])
 async def homepage():
+    """
+    Get a list of currently live streamers to display on the homepage.
+    """
     async with get_session() as session, session.begin():
         return quart.jsonify(
             [
@@ -140,6 +155,9 @@ GLOBAL_EMOTE_SET_QUERY = """
 
 @api.route("/emotes", methods=["GET"])
 async def _():
+    """
+    Get a list of emotes to display in the chat, including URLs and zero-width (overlaying) status.
+    """
     async with httpx.AsyncClient() as client:
         return quart.jsonify(
             {

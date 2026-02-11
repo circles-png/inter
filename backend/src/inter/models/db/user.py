@@ -15,6 +15,9 @@ from inter.common import db
 
 
 class User(db.Model):
+    """
+    Model representing users on Inter.
+    """
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(unique=True, nullable=False)
@@ -29,6 +32,9 @@ class User(db.Model):
 
     @staticmethod
     async def from_session(sql_session: AsyncSession[Any]) -> "User":
+        """
+        Get the user corresponding to the session token in the request cookies.
+        """
         from inter.models.db.session import Session
 
         token = request.cookies.get("session_token")
@@ -44,6 +50,9 @@ class User(db.Model):
 
     @staticmethod
     async def from_session_optional(sql_session: AsyncSession[Any]) -> "User | None":
+        """
+        Same as `from_session`, but returns `None` instead of aborting.
+        """
         from inter.models.db.session import Session
 
         token = request.cookies.get("session_token")
@@ -58,12 +67,18 @@ class User(db.Model):
         return user
 
     async def follow(self, user: "User", session: AsyncSession[Any]) -> None:
+        """
+        Follow the given user.
+        """
         from inter.models.db.follow import Follow
 
         session.add(Follow(follower=self.id, followee=user.id))
         await session.flush()
 
     async def unfollow(self, user: "User", session: AsyncSession[Any]) -> None:
+        """
+        Unfollow the given user.
+        """
         from inter.models.db.follow import Follow
 
         follow = (
@@ -79,6 +94,9 @@ class User(db.Model):
         await session.flush()
 
     async def following_count(self, session: AsyncSession[Any]) -> int:
+        """
+        Get the number of users this user is following.
+        """
         from inter.models.db.follow import Follow
 
         return await session.scalar(
@@ -86,6 +104,9 @@ class User(db.Model):
         )
 
     async def followers_count(self, session: AsyncSession[Any]) -> int:
+        """
+        Get the number of users following this user.
+        """
         from inter.models.db.follow import Follow
 
         return await session.scalar(
@@ -93,6 +114,9 @@ class User(db.Model):
         )
 
     async def following(self, session: AsyncSession[Any]) -> Sequence["User"]:
+        """
+        Get the list of users this user is following.
+        """
         from inter.models.db.follow import Follow
 
         return (
@@ -104,6 +128,9 @@ class User(db.Model):
         ).all()
 
     async def followers(self, session: AsyncSession[Any]) -> Sequence["User"]:
+        """
+        Get the list of users following this user.
+        """
         from inter.models.db.follow import Follow
 
         return (
@@ -122,6 +149,9 @@ class User(db.Model):
         p256dh: bytes | None = None,
         auth: bytes | None = None,
     ):
+        """
+        Set the notification settings for the given user.
+        """
         from inter.models.db.follow import Follow
 
         endpoint, p256dh, auth = (
@@ -140,6 +170,9 @@ class User(db.Model):
     async def get_notify(
         self, user: "User", session: AsyncSession[Any]
     ) -> tuple[str, bytes, bytes] | None:
+        """
+        Get the notification settings for the given user.
+        """
         from inter.models.db.follow import Follow
 
         follow = await session.get(Follow, {"follower": self.id, "followee": user.id})
@@ -150,6 +183,9 @@ class User(db.Model):
         return (follow.endpoint, follow.p256dh, follow.auth)
 
     async def get_notified(self, session: AsyncSession[Any]) -> Sequence["User"]:
+        """
+        Get the list of users that should be notified when this user goes live.
+        """
         from inter.models.db.follow import Follow
 
         return (
@@ -167,12 +203,18 @@ class User(db.Model):
 
     @staticmethod
     async def find_by_token(session: AsyncSession[Any], token: str) -> "User | None":
+        """
+        Find a user by their stream token.
+        """
         return (
             await session.scalars(select(User).where(User.stream_token == token))
         ).one_or_none()
 
     @staticmethod
     async def find_by_id(session: AsyncSession[Any], user_id: int) -> "User | None":
+        """
+        Find a user by their ID.
+        """
         return (
             await session.scalars(select(User).where(User.id == user_id))
         ).one_or_none()
@@ -181,24 +223,36 @@ class User(db.Model):
     async def find_by_username(
         session: AsyncSession[Any], username: str
     ) -> "User | None":
+        """
+        Find a user by their username.
+        """
         return (
             await session.scalars(select(User).where(User.username == username))
         ).one_or_none()
 
     @staticmethod
     async def choice(session: AsyncSession[Any]) -> "User | None":
+        """
+        Get a random user.
+        """
         return (
             await session.scalars(select(User).order_by(func.random()).limit(1))
         ).one_or_none()
 
     @staticmethod
     async def available(session: AsyncSession[Any], username: str) -> bool:
+        """
+        Check if a username is available.
+        """
         return await User.find_by_username(session, username) is None
 
     @staticmethod
     async def add(
         session: AsyncSession[Any], username: str, display_name: str, password: str
     ) -> "User":
+        """
+        Add a new user with the given username, display name, and password.
+        """
         from inter.common import COLOUR_COUNT
 
         salt = generate_secure_random_string()
@@ -215,6 +269,9 @@ class User(db.Model):
         return user
 
     async def roles(self, session: AsyncSession[Any]) -> Sequence[str]:
+        """
+        Get the roles for the given user.
+        """
         from inter.models.db.role import Role, UsersRoles
 
         return (
@@ -228,6 +285,9 @@ class User(db.Model):
 
 @listens_for(User, "after_insert")
 def create_stream(_mapper: Mapper[Any], _connection: Connection, target: User) -> None:
+    """
+    After adding a new user, create a stream for them in the `streams` dictionary.
+    """
     from inter.blueprints.api.v1.stream import streams
 
     streams[target.id] = Stream()
@@ -235,6 +295,9 @@ def create_stream(_mapper: Mapper[Any], _connection: Connection, target: User) -
 
 @listens_for(User, "after_delete")
 def delete_stream(_mapper: Mapper[Any], _connection: Connection, target: User) -> None:
+    """
+    After deleting a user, remove their stream from the `streams` dictionary.
+    """
     from inter.blueprints.api.v1.stream import streams
 
     del streams[target.id]

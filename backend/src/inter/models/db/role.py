@@ -4,6 +4,9 @@ from sqlalchemy.orm import mapped_column, Mapped
 
 
 class UsersRoles(db.Model):
+    """
+    Association table for users and roles.
+    """
     __tablename__ = "users_roles"
     user: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True

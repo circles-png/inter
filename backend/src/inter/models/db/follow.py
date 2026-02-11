@@ -4,6 +4,10 @@ from sqlalchemy import ForeignKey, UniqueConstraint, CheckConstraint
 
 
 class Follow(db.Model):
+    """
+    Association table for followers and followees, with optional columns for push notification
+    settings. `p256dh` and `auth` are used for Web Push authentication.
+    """
     __tablename__ = "follow"
 
     follower: Mapped[int] = mapped_column(
