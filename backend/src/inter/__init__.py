@@ -1,9 +1,9 @@
 from asyncio import set_event_loop_policy
+from http.client import NOT_FOUND, UNAUTHORIZED
 from logging import getLogger
 import logging
 from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, socket
-import uvloop
 import httpx
 
 
@@ -21,6 +21,9 @@ def create_app():
         app,
         allow_origin=[
             "http://localhost:5001",
+            # Unpack a single element list containing the local IP address into the allowed origins
+            # list. We create the socket and pass it to a lambda function in order to connect and
+            # get the local IP address in one statement.
             *(
                 [
                     (
@@ -36,8 +39,8 @@ def create_app():
         ],
         allow_credentials=True,
     )
-    app.register_error_handler(404, lambda _: ("", 404))
-    app.register_error_handler(401, lambda _: ("", 401))
+    app.register_error_handler(NOT_FOUND, lambda _: ("", NOT_FOUND))
+    app.register_error_handler(UNAUTHORIZED, lambda _: ("", UNAUTHORIZED))
 
     class Filter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
@@ -47,7 +50,13 @@ def create_app():
             )
 
     getLogger("hypercorn.access").addFilter(filter=Filter())
-    set_event_loop_policy(uvloop.EventLoopPolicy())
+
+    try:
+        import uvloop
+
+        set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass
 
     @app.route("/", defaults={"path": ""}, methods=["GET", "POST"])
     @app.route("/<path:path>", methods=["GET", "POST"])

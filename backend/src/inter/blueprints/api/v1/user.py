@@ -26,7 +26,7 @@ async def avatar(username: str):
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
-            return quart.Response(status=404)
+            return quart.Response(status=NOT_FOUND)
         avatar = user.avatar
         if not avatar:
             return quart.Response(status=NO_CONTENT)
@@ -41,7 +41,7 @@ async def get_user(username: str):
     async with get_session() as session, session.begin():
         user = await User.find_by_username(session, username)
         if not user:
-            return quart.Response(status=404)
+            return quart.Response(status=NOT_FOUND)
 
         return quart.jsonify(
             {
