@@ -30,6 +30,9 @@ jobs:
           pnpm i --frozen-lockfile
           pnpm run build
           rm -rf node_modules
+          cd ../backend
+          python -m pip install poetry poetry-plugin-export
+          python -m poetry export -f requirements.txt > requirements.txt
       - uses: actions/upload-artifact@v4
         with:
           path: .
