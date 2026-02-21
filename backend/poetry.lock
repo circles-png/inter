@@ -2048,27 +2048,31 @@ quart = ">=0.15"
 
 [[package]]
 name = "quart-sqlalchemy"
-version = "3.0.4"
+version = "3.0.5"
 description = "SQLAlchemy for humans, with framework adapter for Quart."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-files = [
-    {file = "quart_sqlalchemy-3.0.4-py3-none-any.whl", hash = "sha256:d262542fd83780917bd30bf7b6f33b291784a8a796e9962cf87c5aff7368c110"},
-    {file = "quart_sqlalchemy-3.0.4.tar.gz", hash = "sha256:302f9da74ddd86fc02cf83d5a48d608796cd728e3c6892d98f992e0d49da0121"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 anyio = ">=3.0.0,<4"
 blinker = ">=1.5,<1.7"
 exceptiongroup = "*"
 pydantic = ">=1.10.13,<1.11.0"
-quart = ">=0.18.3,<0.20.0"
+quart = {version = ">=0.18.3", markers = "python_version >= \"3.9\""}
 SQLAlchemy = {version = ">=2.0.0,<2.1.0", extras = ["asyncio"]}
 SQLAlchemy-Utils = "*"
 sqlapagination = "*"
 tenacity = ">=8.0.1,<8.1.0"
 werkzeug = ">=2.2.0,<3.1.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/Zwork101/quart-sqlalchemy"
+reference = "HEAD"
+resolved_reference = "105466a3e9d1d044ad8aa884322ee12bd72e4bdb"
 
 [[package]]
 name = "requests"
@@ -2322,6 +2326,7 @@ description = "Fast implementation of asyncio event loop on top of libuv"
 optional = false
 python-versions = ">=3.8.1"
 groups = ["main"]
+markers = "sys_platform != \"win32\""
 files = [
     {file = "uvloop-0.22.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ef6f0d4cc8a9fa1f6a910230cd53545d9a14479311e87e3cb225495952eb672c"},
     {file = "uvloop-0.22.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:7cd375a12b71d33d46af85a3343b35d98e8116134ba404bd657b3b1d15988792"},
@@ -2560,4 +2565,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "8540a78cb0f2bd90d0b9202089c50a99cb3a95960782d378407c0e25d2106d05"
+content-hash = "0b4cae54067cfae74e0b87072a439e9fc182711a71fa6f429052d98bd0234be1"

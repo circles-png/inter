@@ -53,7 +53,7 @@ and appending the following information on each line respectively:
 
 ### Installing packages
 
-Open a terminal at `./backend` and use `python -m poetry install` to install packages.
+Open a terminal at `./backend` and use `python -m poetry install` or `python -m pip install -r requirements.txt` to install packages.
 
 ### Starting the server and accessing the PWA
 
