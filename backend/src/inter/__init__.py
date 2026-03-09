@@ -9,6 +9,7 @@ import httpx
 
 def create_app():
     from dotenv import load_dotenv
+    load_dotenv()
     from os import environ
     from os.path import exists, join
     import quart
@@ -16,7 +17,6 @@ def create_app():
     from inter.blueprints.api import api
     from inter.common import app
 
-    load_dotenv()
     cors(
         app,
         allow_origin=[

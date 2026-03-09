@@ -224,7 +224,8 @@ async def ws(username: str):
         streamer = await User.find_by_username(session, username)
         if not streamer:
             return quart.Response(status=NOT_FOUND)
-        stream = streams[streamer.id]
+        streamer_id = streamer.id
+        stream = streams[streamer_id]
     client = None
     candidates: list[RTCIceCandidate] = []
 
@@ -350,7 +351,7 @@ async def ws(username: str):
                                             )
                                             for option in poll.options
                                         )
-                                        or client.viewer == streamer.id
+                                        or client.viewer == streamer_id
                                     )  # TODO include moderators
                                 )
                                 return {
@@ -444,7 +445,7 @@ async def ws(username: str):
                                         # TODO include moderators
                                         if (
                                             not user
-                                            or user.username != streamer.username
+                                            or user.id != streamer_id
                                         ):
                                             return
                                     poll = Poll(
