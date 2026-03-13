@@ -29,6 +29,7 @@
     chatInput,
     inChatLogs = false,
     showTimes,
+    username,
   }: {
     messages: Message[]
     user: User | null
@@ -36,6 +37,7 @@
     chatInput: HTMLInputElement | null
     inChatLogs?: boolean
     showTimes: boolean
+    username: string
   } = $props()
   let messagesContainer: HTMLDivElement
   let chatLogs: string | null = $state(null)
@@ -197,7 +199,7 @@
         <SheetTitle>
           Chat logs for {chatLogs}
         </SheetTitle>
-        {#if chatLogs != user?.username}
+        {#if chatLogs != username && user?.username == username}
           <span class="text-sm text-muted-foreground">Moderate user</span>
           <ButtonGroup>
             <ButtonGroup>
@@ -242,6 +244,7 @@
         )}
         inChatLogs
         {showTimes}
+        {username}
       />
     </SheetContent>
   </Sheet>

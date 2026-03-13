@@ -348,7 +348,7 @@
       class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
       minSize={20}
     >
-      <Chat bind:rtc user={data.user} emotes={data.emotes} bind:messages />
+      <Chat bind:rtc user={data.user} emotes={data.emotes} {username} bind:messages />
     </ResizablePane>
   </ResizablePaneGroup>
 {/snippet}
