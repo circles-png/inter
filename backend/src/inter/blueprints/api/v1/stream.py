@@ -30,8 +30,10 @@ import aiortc.contrib.media
 from quart import abort, request, websocket
 import quart
 from pywebpush import WebPushException, webpush_async  # type: ignore
+from sqlalchemy import select
 
 from inter.models.client import Client
+from inter.models.db.moderation import Moderation
 from inter.models.poll import Option, Poll
 from inter.common import get_session
 from inter.models.stream import Stream
@@ -180,6 +182,7 @@ async def start_stream():
             },
         )
 
+
 @stream.route("/<string:username>/tx", methods=["DELETE"])
 async def stream_tx_delete(username: str):
     """
@@ -309,6 +312,29 @@ async def ws(username: str):
                                 user = await session.get(User, viewer)
                                 if not user:
                                     return
+                                moderation = await session.scalar(
+                                    select(Moderation).where(
+                                        Moderation.subject == streamer_id,
+                                        Moderation.target == viewer,
+                                    )
+                                )
+                                if moderation:
+                                    if (
+                                        moderation.start + moderation.duration
+                                        > datetime.now().timestamp()
+                                    ):
+                                        channel.send(
+                                            json.dumps(
+                                                {
+                                                    "type": "system",
+                                                    "message": f"You are timed out for {int(moderation.start + moderation.duration - datetime.now().timestamp())} more seconds.",
+                                                }
+                                            )
+                                        )
+                                        return
+                                    else:
+                                        await session.delete(moderation)
+
                                 message = json.dumps(
                                     {
                                         "type": "message",
@@ -320,6 +346,7 @@ async def ws(username: str):
                                         "id": urandom(16).hex(),
                                     }
                                 )
+
                             stream.chat.append(message)
                             for client in stream.clients:
                                 if client.chat:
@@ -443,10 +470,7 @@ async def ws(username: str):
                                     ):
                                         user = await session.get(User, viewer)
                                         # TODO include moderators
-                                        if (
-                                            not user
-                                            or user.id != streamer_id
-                                        ):
+                                        if not user or user.id != streamer_id:
                                             return
                                     poll = Poll(
                                         parsed["question"],

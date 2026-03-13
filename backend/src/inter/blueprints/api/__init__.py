@@ -158,46 +158,49 @@ async def _():
     """
     Get a list of emotes to display in the chat, including URLs and zero-width (overlaying) status.
     """
-    async with httpx.AsyncClient() as client:
-        return quart.jsonify(
-            {
-                emote["name"]: (
-                    next(
-                        image["url"].replace(
-                            "https://cdn.7tv.app/",
-                            "https://em.circles-png.workers.dev/cdn.7tv.app/",
-                        )
-                        for image in emote["emote"]["images"]
-                        if image["url"].endswith("2x.webp")
-                    ),
-                    emote["emote"]["flags"]["zeroWidth"],
-                )
-                for set in [
-                    (
-                        await client.post(
-                            f"https://em.circles-png.workers.dev/7tv.io/v4/gql",
-                            json=body,
-                        )
-                    ).json()["data"]["emoteSets"][key]["emotes"]["items"]
-                    for body, key in [
-                        (
-                            {
-                                "query": CUSTOM_EMOTE_SET_QUERY,
-                                "variables": {"set": environ["EMOTE_SET"]},
-                            },
-                            "emoteSet",
+    try:
+        async with httpx.AsyncClient() as client:
+            return quart.jsonify(
+                {
+                    emote["name"]: (
+                        next(
+                            image["url"].replace(
+                                "https://cdn.7tv.app/",
+                                "https://em.circles-png.workers.dev/cdn.7tv.app/",
+                            )
+                            for image in emote["emote"]["images"]
+                            if image["url"].endswith("2x.webp")
                         ),
+                        emote["emote"]["flags"]["zeroWidth"],
+                    )
+                    for set in [
                         (
-                            {
-                                "query": GLOBAL_EMOTE_SET_QUERY,
-                            },
-                            "global",
-                        ),
+                            await client.post(
+                                f"https://em.circles-png.workers.dev/7tv.io/v4/gql",
+                                json=body,
+                            )
+                        ).json()["data"]["emoteSets"][key]["emotes"]["items"]
+                        for body, key in [
+                            (
+                                {
+                                    "query": CUSTOM_EMOTE_SET_QUERY,
+                                    "variables": {"set": environ["EMOTE_SET"]},
+                                },
+                                "emoteSet",
+                            ),
+                            (
+                                {
+                                    "query": GLOBAL_EMOTE_SET_QUERY,
+                                },
+                                "global",
+                            ),
+                        ]
                     ]
-                ]
-                for emote in set
-            }
-        )
+                    for emote in set
+                }
+            )
+    except httpx.HTTPError:
+        return quart.jsonify({})
 
 
 api.register_blueprint(stream)

@@ -19,6 +19,8 @@
     DropdownMenuTrigger,
   } from "$lib/components/ui/dropdown-menu"
   import ChatMessages from "./ChatMessages.svelte"
+  import ShieldBan from "@lucide/svelte/icons/shield-ban"
+  import ShieldOff from "@lucide/svelte/icons/shield-off"
 
   let {
     messages = $bindable(),
@@ -95,7 +97,12 @@
               .user(message.username)
               .then((user) => user.displayName) then displayName}
               <HoverCard>
-                <HoverCardTrigger style="color: {colours[message.colour]}">
+                <HoverCardTrigger
+                  style="color: {colours[message.colour]}"
+                  class="cursor-pointer hover:underline"
+                  onclick={() =>
+                    (chatInput!.value += `${chatInput!.value.trimEnd() == chatInput!.value ? " " : ""}${message.username} `)}
+                >
                   {message.username}:
                 </HoverCardTrigger>
                 <HoverCardContent class="p-0">
@@ -190,6 +197,41 @@
         <SheetTitle>
           Chat logs for {chatLogs}
         </SheetTitle>
+        {#if chatLogs != user?.username}
+          <span class="text-sm text-muted-foreground">Moderate user</span>
+          <ButtonGroup>
+            <ButtonGroup>
+              <Button
+                variant="outline"
+                onclick={async () => chatLogs && server.user.moderate(chatLogs, undefined)}
+                size="sm"
+              >
+                <ShieldOff />
+              </Button>
+            </ButtonGroup>
+            <ButtonGroup>
+              {#each [["30s", 30], ["1m", 60], ["5m", 5 * 60], ["30m", 30 * 60], ["1h", 60 * 60], ["1d", 60 * 60 * 24]] as const as [label, duration] (label)}
+                <Button
+                  variant="outline"
+                  onclick={async () => chatLogs && server.user.moderate(chatLogs, duration)}
+                  size="sm"
+                  class="text-xs"
+                >
+                  {label}
+                </Button>
+              {/each}
+            </ButtonGroup>
+            <ButtonGroup>
+              <Button
+                variant="outline"
+                onclick={async () => chatLogs && server.user.moderate(chatLogs, null)}
+                size="sm"
+              >
+                <ShieldBan />
+              </Button>
+            </ButtonGroup>
+          </ButtonGroup>
+        {/if}
       </SheetHeader>
       <ChatMessages
         {user}

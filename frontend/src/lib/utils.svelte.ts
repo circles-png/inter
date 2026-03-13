@@ -120,6 +120,20 @@ export function serverWithFetch(f: typeof window.fetch) {
       streamPreview(username: string) {
         return this.resolve(`/${encodeURIComponent(username)}/stream/preview`)
       },
+      async moderate(username: string, duration: number | null | undefined) {
+        return this.postJSON(`/${encodeURIComponent(username)}/moderate`, { duration }).then(
+          async (response) => {
+            if (!response.ok) {
+              const text = await response.text()
+              toast.error("Error while moderating user", { description: text })
+              return Promise.reject(text)
+            }
+            if (duration === undefined) toast.success("Pardoned user successfully")
+            else if (duration === null) toast.success("Banned user successfully")
+            else toast.success(`Banned user for ${duration} seconds`)
+          },
+        )
+      },
     },
     self: {
       ...createBase(f, `${apiBase}/self`),

@@ -2,8 +2,9 @@
 Endpoints for managing and querying users.
 """
 
-from http.client import BAD_REQUEST, NO_CONTENT, NOT_FOUND, OK
+from http.client import BAD_REQUEST, CONFLICT, NO_CONTENT, NOT_FOUND, OK
 from io import BytesIO
+import json
 import PIL
 import PIL.Image
 from av import Packet, VideoFrame
@@ -104,6 +105,7 @@ async def following(username: str):
             return quart.Response(status=NOT_FOUND)
         return quart.jsonify(await user.following_count(session))
 
+
 @user.post("/notify")
 async def notify(username: str):
     """
@@ -200,9 +202,53 @@ async def stream_preview(username: str):
             return await send_video_frame(frame)
         if isinstance(frame, Packet):
             frame = next(
-                (frame for frame in frame.decode() if isinstance(frame, VideoFrame)), None
+                (frame for frame in frame.decode() if isinstance(frame, VideoFrame)),
+                None,
             )
             if not frame:
                 return quart.Response(status=NOT_FOUND)
             return await send_video_frame(frame)
         return quart.Response(status=NOT_FOUND)
+
+
+@user.route("/moderate", methods=["POST"])
+async def moderate(username: str):
+    """
+    Moderate the user with the given username.
+    """
+    async with get_session() as session, session.begin():
+        subject = await User.from_session(session)
+        target = await User.find_by_username(session, username)
+        if not target:
+            return quart.Response(status=NOT_FOUND)
+        if subject.id == target.id:
+            return quart.Response(
+                "Ensure you are not moderating yourself.", status=CONFLICT
+            )
+        data = await quart.request.get_json()
+        if "duration" not in data:
+            await subject.unmoderate(target, session)
+            return quart.Response(status=OK)
+        await subject.moderate(target, data["duration"], session)
+        client = next(
+            (
+                client
+                for client in streams[subject.id].clients
+                if client.viewer == target.id
+            ),
+            None,
+        )
+        if client and client.chat:
+            client.chat.send(
+                json.dumps(
+                    {
+                        "type": "system",
+                        "message": (
+                            "You have been banned."
+                            if data["duration"] is None
+                            else f"You have been timed out for {data['duration']} seconds."
+                        ),
+                    }
+                )
+            )
+        return quart.Response(status=OK)

@@ -34,7 +34,9 @@ async def create_initial_streams() -> None:
     from inter.models.stream import Stream
     import inter.models.db.follow as _
     import inter.models.db.session as _
-    await db.create_all()
+    import inter.models.db.moderation as _
+    async with app.app_context():
+        await db.create_all()
     async with get_session() as session, session.begin():
         for id in (await session.scalars(select(User.id))).all():
             streams[id] = Stream()

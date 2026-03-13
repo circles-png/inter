@@ -2,12 +2,14 @@ from hashlib import sha256
 from http.client import NOT_FOUND, UNAUTHORIZED
 from random import randint
 from typing import Any, Sequence
+from datetime import datetime
 
 from quart import abort, request
 from quart_sqlalchemy import AsyncSession
-from sqlalchemy import Connection, func, select
+from sqlalchemy import Connection, delete, func, select
 from sqlalchemy.orm import Mapper, mapped_column, Mapped
 from sqlalchemy.event import listens_for
+from sqlalchemy.dialects.sqlite import insert
 
 from inter.models.stream import Stream
 from inter.utils import generate_secure_random_string
@@ -18,6 +20,7 @@ class User(db.Model):
     """
     Model representing users on Inter.
     """
+
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(unique=True, nullable=False)
@@ -281,6 +284,41 @@ class User(db.Model):
                 .where(UsersRoles.user == self.id)
             )
         ).all()
+
+    async def unmoderate(self, target: "User", session: AsyncSession[Any]) -> None:
+        """
+        Remove any moderation relationship between this user and the target user.
+        """
+        from inter.models.db.moderation import Moderation
+
+        await session.execute(
+            delete(Moderation).where(
+                Moderation.subject == self.id, Moderation.target == target.id
+            )
+        )
+        await session.flush()
+
+    async def moderate(
+        self, target: "User", duration: int | None, session: AsyncSession[Any]
+    ) -> None:
+        """
+        Moderate the target user for the given duration (in seconds). If duration is `None`, ban the user indefinitely.
+        """
+        from inter.models.db.moderation import Moderation
+
+        statement = insert(Moderation).values(
+            subject=self.id,
+            target=target.id,
+            duration=duration,
+            start=int(datetime.now().timestamp()),
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                set_=dict(
+                    duration=statement.excluded.duration, start=statement.excluded.start
+                )
+            )
+        )
 
 
 @listens_for(User, "after_insert")
