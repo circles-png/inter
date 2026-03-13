@@ -319,6 +319,16 @@ async def ws(username: str):
                                     )
                                 )
                                 if moderation:
+                                    if moderation.duration is None:
+                                        channel.send(
+                                            json.dumps(
+                                                {
+                                                    "type": "system",
+                                                    "message": "You are banned from chatting.",
+                                                }
+                                            )
+                                        )
+                                        return
                                     if (
                                         moderation.start + moderation.duration
                                         > datetime.now().timestamp()

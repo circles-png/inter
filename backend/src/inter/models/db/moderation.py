@@ -18,7 +18,7 @@ class Moderation(db.Model):
     target: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, primary_key=True
     )
-    duration: Mapped[int] = mapped_column()
+    duration: Mapped[int | None] = mapped_column()
     start: Mapped[int] = mapped_column(nullable=False)
 
     __table_args__ = (

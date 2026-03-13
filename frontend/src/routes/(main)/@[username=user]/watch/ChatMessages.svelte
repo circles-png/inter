@@ -21,6 +21,7 @@
   import ChatMessages from "./ChatMessages.svelte"
   import ShieldBan from "@lucide/svelte/icons/shield-ban"
   import ShieldOff from "@lucide/svelte/icons/shield-off"
+  import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
 
   let {
     messages = $bindable(),
@@ -203,34 +204,41 @@
           <span class="text-sm text-muted-foreground">Moderate user</span>
           <ButtonGroup>
             <ButtonGroup>
-              <Button
-                variant="outline"
-                onclick={async () => chatLogs && server.user.moderate(chatLogs, undefined)}
-                size="sm"
-              >
-                <ShieldOff />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  onclick={async () => chatLogs && server.user.moderate(chatLogs, undefined)}
+                  class={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <ShieldOff />
+                </TooltipTrigger>
+                <TooltipContent>Pardon user</TooltipContent>
+              </Tooltip>
             </ButtonGroup>
             <ButtonGroup>
-              {#each [["30s", 30], ["1m", 60], ["5m", 5 * 60], ["30m", 30 * 60], ["1h", 60 * 60], ["1d", 60 * 60 * 24]] as const as [label, duration] (label)}
-                <Button
-                  variant="outline"
-                  onclick={async () => chatLogs && server.user.moderate(chatLogs, duration)}
-                  size="sm"
-                  class="text-xs"
-                >
-                  {label}
-                </Button>
+              {#each [["30s", 30, "30 seconds"], ["1m", 60, "1 minute"], ["5m", 5 * 60, "5 minutes"], ["30m", 30 * 60, "30 minutes"], ["1h", 60 * 60, "1 hour"], ["1d", 60 * 60 * 24, "1 day"]] as const as [label, duration, description] (label)}
+                <Tooltip>
+                  <TooltipTrigger
+                    onclick={async () => chatLogs && server.user.moderate(chatLogs, duration)}
+                    class={buttonVariants({ variant: "outline", size: "sm", class: "text-xs" })}
+                  >
+                    {label}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Timeout for {description} ({duration} seconds)
+                  </TooltipContent>
+                </Tooltip>
               {/each}
             </ButtonGroup>
             <ButtonGroup>
-              <Button
-                variant="outline"
-                onclick={async () => chatLogs && server.user.moderate(chatLogs, null)}
-                size="sm"
-              >
-                <ShieldBan />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  onclick={async () => chatLogs && server.user.moderate(chatLogs, null)}
+                  class={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <ShieldBan />
+                </TooltipTrigger>
+                <TooltipContent>Ban user</TooltipContent>
+              </Tooltip>
             </ButtonGroup>
           </ButtonGroup>
         {/if}

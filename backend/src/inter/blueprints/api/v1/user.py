@@ -226,10 +226,6 @@ async def moderate(username: str):
                 "Ensure you are not moderating yourself.", status=CONFLICT
             )
         data = await quart.request.get_json()
-        if "duration" not in data:
-            await subject.unmoderate(target, session)
-            return quart.Response(status=OK)
-        await subject.moderate(target, data["duration"], session)
         client = next(
             (
                 client
@@ -238,6 +234,19 @@ async def moderate(username: str):
             ),
             None,
         )
+        if "duration" not in data:
+            await subject.unmoderate(target, session)
+            if client and client.chat:
+                client.chat.send(
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "message": "You have been pardoned.",
+                        }
+                    )
+                )
+            return quart.Response(status=OK)
+        await subject.moderate(target, data["duration"], session)
         if client and client.chat:
             client.chat.send(
                 json.dumps(
