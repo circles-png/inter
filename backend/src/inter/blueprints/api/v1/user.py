@@ -220,31 +220,45 @@ async def stream_preview(username: str):
         return quart.Response(status=NOT_FOUND)
 
 
-@user.route("/moderate", methods=["POST"])
-async def moderate(username: str):
+@user.route("/moderate/<string:subject>", methods=["POST"])
+async def moderate(username: str, subject: str):
     """
     Moderate the user with the given username.
     """
     async with get_session() as session, session.begin():
-        subject = await User.from_session(session)
+        actor = await User.from_session(session)
+        subject_user = await User.find_by_username(session, subject)
+        if not subject_user:
+            return quart.Response(status=NOT_FOUND)
+        if not (
+            actor.id == subject_user.id
+            or (
+                await session.execute(
+                    select(UsersRoles).where(
+                        UsersRoles.subject == subject_user.id,
+                        UsersRoles.target == actor.id,
+                        UsersRoles.role == MODERATOR_ROLE_ID,
+                    )
+                )
+            ).one_or_none()
+        ):
+            return quart.Response(status=FORBIDDEN)
         target = await User.find_by_username(session, username)
         if not target:
             return quart.Response(status=NOT_FOUND)
-        if subject.id == target.id:
-            return quart.Response(
-                "Ensure you are not moderating yourself.", status=CONFLICT
-            )
+        if subject_user.id == target.id:
+            return quart.Response("This user cannot be moderated.", status=CONFLICT)
         data = await quart.request.get_json()
         client = next(
             (
                 client
-                for client in streams[subject.id].clients
+                for client in streams[subject_user.id].clients
                 if client.viewer == target.id
             ),
             None,
         )
         if "duration" not in data:
-            await subject.unmoderate(target, session)
+            await subject_user.unmoderate(target, session)
             if client and client.chat:
                 client.chat.send(
                     json.dumps(
@@ -255,7 +269,7 @@ async def moderate(username: str):
                     )
                 )
             return quart.Response(status=OK)
-        await subject.moderate(target, data["duration"], session)
+        await subject_user.moderate(target, data["duration"], session)
         if client and client.chat:
             client.chat.send(
                 json.dumps(
@@ -307,13 +321,13 @@ async def set_roles(username: str, subject: str):
 
         if not subject_user:
             return quart.Response(status=NOT_FOUND)
-        if (
-            actor.id != subject_user.id
-            and not (
+        if not (
+            actor.id == subject_user.id
+            or (
                 await session.execute(
                     select(UsersRoles).where(
-                        UsersRoles.subject == actor.id,
-                        UsersRoles.target == subject_user.id,
+                        UsersRoles.subject == subject_user.id,
+                        UsersRoles.target == actor.id,
                         UsersRoles.role == MODERATOR_ROLE_ID,
                     )
                 )

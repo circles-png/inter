@@ -45,13 +45,22 @@
   } = $props()
   let messagesContainer: HTMLDivElement
   let chatLogs: string | null = $state(null)
+  let moderator = $state(false)
 
   const m = $derived(messages.filter((message) => message !== undefined))
-
   let userRolesPromise: Promise<null | number[]> = $state(Promise.resolve(null))
 
   $effect(() => {
     if (chatLogs) userRolesPromise = server.user.getRoles(chatLogs, username)
+  })
+
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    messages
+    if (!user) return
+    server.user
+      .getRoles(user?.username, username)
+      .then((userRoles) => (moderator = userRoles.includes(0)))
   })
 
   $effect(() => {
@@ -225,7 +234,7 @@
         <SheetTitle>
           Chat logs for {chatLogs}
         </SheetTitle>
-        {#if !!chatLogs && chatLogs != username && user?.username == username}
+        {#if (!!chatLogs && chatLogs != username && user?.username == username) || moderator}
           <span class="text-sm text-muted-foreground">Roles</span>
           {#await userRolesPromise then userRoles}
             {#if userRoles}
@@ -280,7 +289,8 @@
             <ButtonGroup>
               <Tooltip>
                 <TooltipTrigger
-                  onclick={async () => chatLogs && server.user.moderate(chatLogs, undefined)}
+                  onclick={async () =>
+                    chatLogs && server.user.moderate(chatLogs, username, undefined)}
                   class={buttonVariants({ variant: "outline", size: "sm" })}
                 >
                   <ShieldOff />
@@ -292,7 +302,8 @@
               {#each [["30s", 30, "30 seconds"], ["1m", 60, "1 minute"], ["5m", 5 * 60, "5 minutes"], ["30m", 30 * 60, "30 minutes"], ["1h", 60 * 60, "1 hour"], ["1d", 60 * 60 * 24, "1 day"]] as const as [label, duration, description] (label)}
                 <Tooltip>
                   <TooltipTrigger
-                    onclick={async () => chatLogs && server.user.moderate(chatLogs, duration)}
+                    onclick={async () =>
+                      chatLogs && server.user.moderate(chatLogs, username, duration)}
                     class={buttonVariants({ variant: "outline", size: "sm", class: "text-xs" })}
                   >
                     {label}
@@ -306,7 +317,7 @@
             <ButtonGroup>
               <Tooltip>
                 <TooltipTrigger
-                  onclick={async () => chatLogs && server.user.moderate(chatLogs, null)}
+                  onclick={async () => chatLogs && server.user.moderate(chatLogs, username, null)}
                   class={buttonVariants({ variant: "outline", size: "sm" })}
                 >
                   <ShieldBan />
