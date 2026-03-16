@@ -28,6 +28,10 @@ db = QuartSQLAlchemy(
 get_session: Callable[[], AsyncSession[Any]] = lambda: db.bind.Session()  # type: ignore
 
 
+MODERATOR_ROLE_ID = 0
+VIP_ROLE_ID = 1
+
+
 async def create_initial_streams() -> None:
     from inter.blueprints.api.v1.stream import streams
     from inter.models.db.user import User
@@ -49,12 +53,12 @@ async def create_initial_streams() -> None:
             .values(
                 [
                     {
-                        "id": 0,
+                        "id": MODERATOR_ROLE_ID,
                         "name": "Moderator",
                         "icon": moderator_icon,
                         "moderator": True,
                     },
-                    {"id": 1, "name": "VIP", "icon": vip_icon, "vip": True},
+                    {"id": VIP_ROLE_ID, "name": "VIP", "icon": vip_icon, "vip": True},
                 ]
             )
             .on_conflict_do_nothing()

@@ -73,11 +73,27 @@
 
     let ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
     ws.onmessage = async (event) => {
-      const data: { type: "connect"; sdp: RTCSessionDescriptionInit } = JSON.parse(event.data)
+      const data: { type: "connect"; sdp: RTCSessionDescriptionInit } | { type: "roles" } =
+        JSON.parse(event.data)
 
       if (data.type == "connect") {
         const answer = data.sdp
         await connection.setRemoteDescription(answer)
+      }
+
+      if (data.type == "roles") {
+        messages = messages.map((message) =>
+          message.type == "message"
+            ? {
+                ...message,
+                roles: server.user
+                  .getRoles(message.username, username)
+                  .then((userRoles) =>
+                    userRoles.map((role) => roles.find(({ id }) => id === role)!),
+                  ),
+              }
+            : message,
+        )
       }
     }
 

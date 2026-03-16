@@ -2,7 +2,14 @@
 Endpoints for managing and querying users.
 """
 
-from http.client import BAD_REQUEST, CONFLICT, NO_CONTENT, NOT_FOUND, OK
+from http.client import (
+    BAD_REQUEST,
+    CONFLICT,
+    FORBIDDEN,
+    NO_CONTENT,
+    NOT_FOUND,
+    OK,
+)
 from io import BytesIO
 import json
 import PIL
@@ -14,7 +21,7 @@ from inter.models.db.role import UsersRoles
 from inter.models.db.user import User
 import filetype  # type: ignore
 from quart.datastructures import FileStorage
-from inter.common import get_session
+from inter.common import MODERATOR_ROLE_ID, get_session
 from inter.blueprints.api.v1.stream import streams
 
 user = quart.Blueprint("user", __name__, url_prefix="/user/<string:username>")
@@ -277,18 +284,6 @@ async def get_roles(username: str, subject: str):
         subject_user = await User.find_by_username(session, subject)
         if not subject_user:
             return quart.Response(status=NOT_FOUND)
-        print(
-            [
-                *(
-                    await session.execute(
-                        select(UsersRoles.role).where(
-                            UsersRoles.target == target.id,
-                            UsersRoles.subject == subject_user.id,
-                        )
-                    )
-                ).all()
-            ]
-        )
         return quart.jsonify(
             [
                 *await session.scalars(
@@ -307,12 +302,26 @@ async def set_roles(username: str, subject: str):
     Set the roles that the target with the given username has, with respect to the given subject.
     """
     async with get_session() as session, session.begin():
-        # TODO auth
+        actor = await User.from_session(session)
+        subject_user = await User.find_by_username(session, subject)
+
+        if not subject_user:
+            return quart.Response(status=NOT_FOUND)
+        if (
+            actor.id != subject_user.id
+            and not (
+                await session.execute(
+                    select(UsersRoles).where(
+                        UsersRoles.subject == actor.id,
+                        UsersRoles.target == subject_user.id,
+                        UsersRoles.role == MODERATOR_ROLE_ID,
+                    )
+                )
+            ).one_or_none()
+        ):
+            return quart.Response(status=FORBIDDEN)
         target = await User.find_by_username(session, username)
         if not target:
-            return quart.Response(status=NOT_FOUND)
-        subject_user = await User.find_by_username(session, subject)
-        if not subject_user:
             return quart.Response(status=NOT_FOUND)
         data = await quart.request.get_json()
         if not isinstance(data, list) or not all(
@@ -327,4 +336,6 @@ async def set_roles(username: str, subject: str):
         session.add_all(
             UsersRoles(subject=subject_user.id, target=target.id, role=role) for role in data  # type: ignore
         )
+        for client in streams[subject_user.id].clients:
+            await client.tx_queue.put({"type": "roles"})
     return quart.Response(status=OK)
