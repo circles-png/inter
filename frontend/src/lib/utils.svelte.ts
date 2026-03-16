@@ -134,6 +134,24 @@ export function serverWithFetch(f: typeof window.fetch) {
           },
         )
       },
+      async getRoles(username: string, subject: string): Promise<number[]> {
+        return (
+          await this.get(`/${encodeURIComponent(username)}/roles/${encodeURIComponent(subject)}`)
+        ).json()
+      },
+      async setRoles(username: string, subject: string, roles: number[]) {
+        return this.postJSON(
+          `/${encodeURIComponent(username)}/roles/${encodeURIComponent(subject)}`,
+          roles,
+        ).then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text()
+            toast.error("Error while setting roles", { description: text })
+            return Promise.reject(text)
+          }
+          toast.success("Updated roles successfully")
+        })
+      },
     },
     self: {
       ...createBase(f, `${apiBase}/self`),
@@ -174,8 +192,8 @@ export function serverWithFetch(f: typeof window.fetch) {
         if (response.status === 401) {
           return null
         }
-        const { username, displayName, colour, streamToken, roles } = await response.json()
-        return { username, displayName, colour, streamToken, roles } satisfies User
+        const { username, displayName, colour, streamToken } = await response.json()
+        return { username, displayName, colour, streamToken } satisfies User
       },
       async login(username: string, password: string) {
         await this.postJSON("/login", { username, password }).then(async (response) => {
@@ -219,6 +237,15 @@ export function serverWithFetch(f: typeof window.fetch) {
             }
           },
         )
+      },
+    },
+    roles: {
+      ...createBase(f, `${apiBase}/roles`),
+      async list(): Promise<{ id: number; name: string }[]> {
+        return (await this.get("/")).json()
+      },
+      icon(id: number) {
+        return this.resolve(`/${id}/icon`)
       },
     },
     stream: {

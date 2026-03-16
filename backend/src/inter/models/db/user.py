@@ -271,20 +271,6 @@ class User(db.Model):
         await session.flush()
         return user
 
-    async def roles(self, session: AsyncSession[Any]) -> Sequence[str]:
-        """
-        Get the roles for the given user.
-        """
-        from inter.models.db.role import Role, UsersRoles
-
-        return (
-            await session.scalars(
-                select(Role.name)
-                .join(UsersRoles, UsersRoles.role == Role.id)
-                .where(UsersRoles.user == self.id)
-            )
-        ).all()
-
     async def unmoderate(self, target: "User", session: AsyncSession[Any]) -> None:
         """
         Remove any moderation relationship between this user and the target user.

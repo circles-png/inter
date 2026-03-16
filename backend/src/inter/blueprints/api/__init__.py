@@ -14,6 +14,7 @@ from inter.blueprints.api.v1.auth import auth
 from inter.blueprints.api.v1.stream import stream, streams
 from inter.blueprints.api.v1.user import user
 from inter.blueprints.api.v1.user_self import user_self
+from inter.blueprints.api.v1.roles import roles
 from inter.models.db.follow import Follow
 from inter.models.db.user import User
 from inter.common import get_session
@@ -207,3 +208,4 @@ api.register_blueprint(stream)
 api.register_blueprint(auth)
 api.register_blueprint(user)
 api.register_blueprint(user_self)
+api.register_blueprint(roles)

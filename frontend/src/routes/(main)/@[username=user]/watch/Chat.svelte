@@ -21,12 +21,14 @@
     emotes,
     messages = $bindable(),
     username,
+    roles,
   }: {
     rtc: { chat: RTCDataChannel } | null
     user: User | null
     emotes: { [key: string]: [string, boolean] }
     messages: Message[]
     username: string
+    roles: { id: number; name: string }[]
   } = $props()
   let focused = $state(false)
   let suggestions = $state<[string, [string, boolean]][]>([])
@@ -85,7 +87,7 @@
     <TooltipContent>Timestamps</TooltipContent>
   </Tooltip>
 </div>
-<ChatMessages bind:messages {user} bind:replying {chatInput} {showTimes} {username} />
+<ChatMessages bind:messages {user} bind:replying {chatInput} {showTimes} {username} {roles} />
 {#if user}
   <div class="px-4 relative">
     <div class="flex flex-col">

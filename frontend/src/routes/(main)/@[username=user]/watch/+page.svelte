@@ -38,6 +38,7 @@
   let { displayName, colour, username } = $derived(data.profile)
   let { title, game, start, viewers } = $derived(data.stream)
   let emotes = $derived(data.emotes)
+  let roles = $derived(data.roles)
 
   let video: HTMLVideoElement
   let rtc: { chat: RTCDataChannel; poll: RTCDataChannel; connection: RTCPeerConnection } | null =
@@ -157,6 +158,9 @@
                 (data.username != username && moderation.match(data.message))
                 || (moderation.links.block
                   && fragments.some((fragment) => fragment.type == "text" && isURL(fragment.text))),
+              roles: server.user
+                .getRoles(data.username, username)
+                .then((userRoles) => userRoles.map((role) => roles.find(({ id }) => id === role)!)),
             })
             break
         }
@@ -348,7 +352,7 @@
       class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
       minSize={20}
     >
-      <Chat bind:rtc user={data.user} emotes={data.emotes} {username} bind:messages />
+      <Chat bind:rtc user={data.user} emotes={data.emotes} {username} {roles} bind:messages />
     </ResizablePane>
   </ResizablePaneGroup>
 {/snippet}

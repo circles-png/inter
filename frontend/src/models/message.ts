@@ -14,5 +14,6 @@ export type Message =
       replying: null | MessageId
       id: MessageId
       filtered: boolean
+      roles: Promise<{ id: number; name: string }[]>
     }
 export type MessageId = string & { readonly __brand: unique symbol }

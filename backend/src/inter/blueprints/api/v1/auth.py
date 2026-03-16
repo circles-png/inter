@@ -85,7 +85,6 @@ async def user():
                 "displayName": user.display_name,
                 "colour": user.colour,
                 "streamToken": user.stream_token,
-                "roles": await user.roles(sql_session),
             }
         )
 

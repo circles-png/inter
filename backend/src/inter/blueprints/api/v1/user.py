@@ -9,6 +9,8 @@ import PIL
 import PIL.Image
 from av import Packet, VideoFrame
 import quart
+from sqlalchemy import delete, select
+from inter.models.db.role import UsersRoles
 from inter.models.db.user import User
 import filetype  # type: ignore
 from quart.datastructures import FileStorage
@@ -261,3 +263,68 @@ async def moderate(username: str):
                 )
             )
         return quart.Response(status=OK)
+
+
+@user.route("/roles/<string:subject>", methods=["GET"])
+async def get_roles(username: str, subject: str):
+    """
+    Get the roles that the target with the given username has, with respect to the given subject.
+    """
+    async with get_session() as session, session.begin():
+        target = await User.find_by_username(session, username)
+        if not target:
+            return quart.Response(status=NOT_FOUND)
+        subject_user = await User.find_by_username(session, subject)
+        if not subject_user:
+            return quart.Response(status=NOT_FOUND)
+        print(
+            [
+                *(
+                    await session.execute(
+                        select(UsersRoles.role).where(
+                            UsersRoles.target == target.id,
+                            UsersRoles.subject == subject_user.id,
+                        )
+                    )
+                ).all()
+            ]
+        )
+        return quart.jsonify(
+            [
+                *await session.scalars(
+                    select(UsersRoles.role).where(
+                        UsersRoles.target == target.id,
+                        UsersRoles.subject == subject_user.id,
+                    )
+                )
+            ]
+        )
+
+
+@user.route("/roles/<string:subject>", methods=["POST"])
+async def set_roles(username: str, subject: str):
+    """
+    Set the roles that the target with the given username has, with respect to the given subject.
+    """
+    async with get_session() as session, session.begin():
+        # TODO auth
+        target = await User.find_by_username(session, username)
+        if not target:
+            return quart.Response(status=NOT_FOUND)
+        subject_user = await User.find_by_username(session, subject)
+        if not subject_user:
+            return quart.Response(status=NOT_FOUND)
+        data = await quart.request.get_json()
+        if not isinstance(data, list) or not all(
+            isinstance(role, int) for role in data  # type: ignore
+        ):
+            return quart.Response(status=BAD_REQUEST)
+        await session.execute(
+            delete(UsersRoles).where(
+                UsersRoles.target == target.id, UsersRoles.subject == subject_user.id
+            )
+        )
+        session.add_all(
+            UsersRoles(subject=subject_user.id, target=target.id, role=role) for role in data  # type: ignore
+        )
+    return quart.Response(status=OK)

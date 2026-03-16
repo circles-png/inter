@@ -22,6 +22,7 @@
   import ShieldBan from "@lucide/svelte/icons/shield-ban"
   import ShieldOff from "@lucide/svelte/icons/shield-off"
   import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
+  import Toggle from "$lib/components/ui/toggle/toggle.svelte"
 
   let {
     messages = $bindable(),
@@ -31,6 +32,7 @@
     inChatLogs = false,
     showTimes,
     username,
+    roles,
   }: {
     messages: Message[]
     user: User | null
@@ -39,11 +41,18 @@
     inChatLogs?: boolean
     showTimes: boolean
     username: string
+    roles: { id: number; name: string }[]
   } = $props()
   let messagesContainer: HTMLDivElement
   let chatLogs: string | null = $state(null)
 
   const m = $derived(messages.filter((message) => message !== undefined))
+
+  let userRolesPromise: Promise<null | number[]> = $state(Promise.resolve(null))
+
+  $effect(() => {
+    if (chatLogs) userRolesPromise = server.user.getRoles(chatLogs, username)
+  })
 
   $effect(() => {
     if (messages.length) {
@@ -96,43 +105,59 @@
         {/if}
         <p class="wrap-anywhere grow">
           {#if message.type === "message"}
-            {#await server.user
-              .user(message.username)
-              .then((user) => user.displayName) then displayName}
-              <HoverCard>
-                <HoverCardTrigger
-                  style="color: {colours[message.colour]}"
-                  class="cursor-pointer hover:underline"
-                  onclick={() =>
-                    (chatInput!.value += `${chatInput!.value.trimEnd() == chatInput!.value ? " " : ""}${message.username} `)}
+            {#await message.roles then userRoles}
+              {#each userRoles as { id, name } (id)}
+                <Tooltip>
+                  <TooltipTrigger>
+                    <img
+                      src={server.roles.icon(id)}
+                      alt={roles.find(({ id: other }) => other === id)?.name}
+                      class="size-4 inline"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {name}
+                  </TooltipContent>
+                </Tooltip>
+              {/each}
+            {/await}
+            <HoverCard>
+              <HoverCardTrigger
+                style="color: {colours[message.colour]}"
+                class="cursor-pointer hover:underline"
+                onclick={() =>
+                  (chatInput!.value += `${chatInput!.value.trimEnd() == chatInput!.value ? " " : ""}${message.username} `)}
+              >
+                {message.username}:
+              </HoverCardTrigger>
+              <HoverCardContent class="p-0">
+                <Button
+                  href={resolve("/(main)/@[username=user]", { username: message.username })}
+                  class="h-auto p-4 w-full"
+                  variant="ghost"
                 >
-                  {message.username}:
-                </HoverCardTrigger>
-                <HoverCardContent class="p-0">
-                  <Button
-                    href={resolve("/(main)/@[username=user]", { username: message.username })}
-                    class="h-auto p-4 w-full"
-                    variant="ghost"
-                  >
-                    <Avatar class="size-12">
-                      <AvatarImage
-                        src={server.user.avatar(message.username)}
-                        alt={message.username}
-                      />
-                      <AvatarFallback class="bg-muted" />
-                    </Avatar>
-                    <div class="flex flex-col grow">
+                  <Avatar class="size-12">
+                    <AvatarImage
+                      src={server.user.avatar(message.username)}
+                      alt={message.username}
+                    />
+                    <AvatarFallback class="bg-muted" />
+                  </Avatar>
+                  <div class="flex flex-col grow">
+                    {#await server.user
+                      .user(message.username)
+                      .then((user) => user.displayName) then displayName}
                       <div class="font-bold">
                         {displayName || `@${message.username}`}
                       </div>
                       {#if displayName}
                         <div class="text-sm text-muted-foreground">@{message.username}</div>
                       {/if}
-                    </div>
-                  </Button>
-                </HoverCardContent>
-              </HoverCard>
-            {/await}
+                    {/await}
+                  </div>
+                </Button>
+              </HoverCardContent>
+            </HoverCard>
           {/if}
           {#if message.type === "system" || !message.filtered}
             <Fragments {fragments} />
@@ -200,7 +225,56 @@
         <SheetTitle>
           Chat logs for {chatLogs}
         </SheetTitle>
-        {#if chatLogs != username && user?.username == username}
+        {#if !!chatLogs && chatLogs != username && user?.username == username}
+          <span class="text-sm text-muted-foreground">Roles</span>
+          {#await userRolesPromise then userRoles}
+            {#if userRoles}
+              <ButtonGroup>
+                {#each roles as { id, name } (id)}
+                  <Tooltip>
+                    <TooltipTrigger>
+                      {#snippet child({ props })}
+                        <Toggle
+                          {...props}
+                          bind:pressed={
+                            () => userRoles.includes(id),
+                            () => {
+                              if (!chatLogs) return
+                              const next = [...userRoles]
+                              if (next.includes(id)) next.splice(next.indexOf(id), 1)
+                              else next.push(id)
+                              server.user.setRoles(chatLogs, username, next).then(() => {
+                                if (!chatLogs) return
+                                userRolesPromise = server.user.getRoles(chatLogs, username)
+                                messages = messages.map((message) =>
+                                  message.type == "message"
+                                    ? {
+                                        ...message,
+                                        roles: server.user
+                                          .getRoles(message.username, username)
+                                          .then((userRoles) =>
+                                            userRoles.map(
+                                              (role) => roles.find(({ id }) => id === role)!,
+                                            ),
+                                          ),
+                                      }
+                                    : message,
+                                )
+                              })
+                            }
+                          }
+                          class="data-[state=off]:opacity-50"
+                        >
+                          <img src={server.roles.icon(id)} alt={name} class="size-6" />
+                        </Toggle>
+                      {/snippet}
+                    </TooltipTrigger>
+                    <TooltipContent>{name}</TooltipContent>
+                  </Tooltip>
+                {/each}
+              </ButtonGroup>
+            {/if}
+          {/await}
           <span class="text-sm text-muted-foreground">Moderate user</span>
           <ButtonGroup>
             <ButtonGroup>
@@ -253,6 +327,7 @@
         inChatLogs
         {showTimes}
         {username}
+        {roles}
       />
     </SheetContent>
   </Sheet>

@@ -5,9 +5,9 @@ from sqlalchemy import ForeignKey, UniqueConstraint, CheckConstraint
 
 class Moderation(db.Model):
     """
-    Association table for moderation relationships between users. A viewer may receive a timeout
-    from a streamer, which prevents them from chatting in the streamer's chat for a certain amount
-    (maybe indefinite) of time.
+    Association table for moderation relationships between users. A viewer (`target`) may receive a
+    timeout from a streamer (`subject`), which prevents them from chatting in the streamer's chat
+    for a certain amount of time (maybe indefinite).
     """
 
     __tablename__ = "moderation"
