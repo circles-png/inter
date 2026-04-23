@@ -12,7 +12,7 @@ dependencies = [
     "filetype (>=1.2.0,<2.0.0)",
     "pillow (>=12.1.1,<13.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
-    "pywebpush (>=2.3.0,<3.0.0)",
+    "pywebpush @ vendor/pywebpush",
     "hypercorn (>=0.18.0,<0.19.0)",
     "sqlalchemy[aiosqlite] (>=2.0.48,<3.0.0)",
     "quart-sqlalchemy @ vendor/quart-sqlalchemy",
@@ -28,7 +28,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.0.2"
+pytest = "9.0.3"
 hypothesis = "^6.151.9"
 
 [build-system]
