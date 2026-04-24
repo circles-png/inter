@@ -37,7 +37,7 @@
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.profile)
   let { title, game, start, viewers } = $derived(data.stream)
-  let emotes = $derived(data.emotes)
+  let emotes = $state({})
   let roles = $derived(data.roles)
 
   let video: HTMLVideoElement
@@ -67,139 +67,162 @@
   })
 
   onMount(() => {
-    const connection = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    })
+    let connection = createConnection()
+    let ws = createWebSocket()
+    function createConnection() {
+      return new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] })
+    }
+    function createWebSocket() {
+      let newWs = (() => {
+        const newWs = new WebSocket(`${apiBase}/stream/${username}/ws`)
+        newWs.onerror = () => {
+          setTimeout(() => {
+            ws = createWebSocket()
+          }, 1000)
+        }
+        return newWs
+      })()
+      if (!newWs) return
+      newWs.onmessage = async (event) => {
+        const data: { type: "connect"; sdp: RTCSessionDescriptionInit } | { type: "roles" } =
+          JSON.parse(event.data)
 
-    let ws = new WebSocket(`${apiBase}/stream/${username}/ws`)
-    ws.onmessage = async (event) => {
-      const data: { type: "connect"; sdp: RTCSessionDescriptionInit } | { type: "roles" } =
-        JSON.parse(event.data)
+        if (data.type == "connect") {
+          const answer = data.sdp
+          await connection.setRemoteDescription(answer)
+        }
 
-      if (data.type == "connect") {
-        const answer = data.sdp
-        await connection.setRemoteDescription(answer)
+        if (data.type == "roles") {
+          messages = messages.map((message) =>
+            message.type == "message"
+              ? {
+                  ...message,
+                  roles: server.user
+                    .getRoles(message.username, username)
+                    .then((userRoles) =>
+                      userRoles.map((role) => roles.find(({ id }) => id === role)!),
+                    ),
+                }
+              : message,
+          )
+        }
       }
 
-      if (data.type == "roles") {
-        messages = messages.map((message) =>
-          message.type == "message"
-            ? {
-                ...message,
+      newWs.onopen = () => {
+        connection.onicecandidate = (event) => {
+          if (!event.candidate) return
+          if (!newWs) return
+          newWs.send(
+            JSON.stringify({
+              type: "candidate",
+              candidate: {
+                candidate: event.candidate.candidate,
+                sdpMid: event.candidate.sdpMid,
+                sdpMLineIndex: event.candidate.sdpMLineIndex,
+              },
+            }),
+          )
+        }
+        connection.ontrack = (event) => {
+          console.log("track", event.streams[0])
+          if (!video.srcObject) {
+            video.srcObject = event.streams[0]
+          }
+        }
+        connection.onnegotiationneeded = async () => {
+          console.log("onnegotiationneeded")
+          const offer = await connection.createOffer()
+          await connection.setLocalDescription(offer)
+
+          if (!newWs) return
+          newWs.send(
+            JSON.stringify({
+              type: "connect",
+              sdp: connection.localDescription,
+              token: await (
+                await fetch(`${apiBase}/stream/auth`, { credentials: "include" })
+              ).text(),
+            }),
+          )
+        }
+        connection.oniceconnectionstatechange = () => {
+          console.log("oniceconnectionstatechange", connection.iceConnectionState)
+          if (connection.iceConnectionState === "disconnected") {
+            messages.push({ type: "system", text: "Disconnected from server, reconnecting..." })
+            connection.close()
+            connection = createConnection()
+            if (ws) ws.close()
+            ws = createWebSocket()
+          }
+        }
+        connection.onsignalingstatechange = () => {
+          console.log("onsignalingstatechange", connection.signalingState)
+        }
+
+        const chat = connection.createDataChannel("chat")
+        chat.onmessage = (event) => {
+          let data:
+            | { type: "system"; message: string }
+            | {
+                type: "message"
+                time: number
+                message: string
+                username: string
+                colour: number
+                replying: null | MessageId
+                id: MessageId
+              } = JSON.parse(event.data)
+          const fragments = parseMessage(data.message, emotes)
+          switch (data.type) {
+            case "system":
+              messages.push({ type: "system", text: data.message })
+              break
+            case "message":
+              messages.push({
+                type: "message",
+                time: new Date(data.time),
+                username: data.username,
+                fragments,
+                colour: data.colour,
+                id: data.id,
+                replying: data.replying,
+                filtered:
+                  (data.username != username && moderation.match(data.message))
+                  || (moderation.links.block
+                    && fragments.some(
+                      (fragment) => fragment.type == "text" && isURL(fragment.text),
+                    )),
                 roles: server.user
-                  .getRoles(message.username, username)
+                  .getRoles(data.username, username)
                   .then((userRoles) =>
                     userRoles.map((role) => roles.find(({ id }) => id === role)!),
                   ),
-              }
-            : message,
-        )
+              })
+              break
+          }
+        }
+        const poll = connection.createDataChannel("poll")
+        poll.onmessage = (event) => {
+          const data: { type: "update"; polls: Poll[] } = JSON.parse(event.data)
+          switch (data.type) {
+            case "update":
+              polls = data.polls
+              break
+          }
+        }
+
+        connection.addTransceiver("video", { direction: "recvonly" })
+        connection.addTransceiver("audio", { direction: "recvonly" })
+
+        rtc = { chat, poll, connection }
       }
+      return newWs
     }
 
-    ws.onopen = () => {
-      connection.onicecandidate = (event) => {
-        if (!event.candidate) return
-        ws.send(
-          JSON.stringify({
-            type: "candidate",
-            candidate: {
-              candidate: event.candidate.candidate,
-              sdpMid: event.candidate.sdpMid,
-              sdpMLineIndex: event.candidate.sdpMLineIndex,
-            },
-          }),
-        )
-      }
-      connection.ontrack = (event) => {
-        console.log("track", event.streams[0])
-        if (!video.srcObject) {
-          video.srcObject = event.streams[0]
-        }
-      }
-      connection.onnegotiationneeded = async () => {
-        console.log("onnegotiationneeded")
-        const offer = await connection.createOffer()
-        await connection.setLocalDescription(offer)
-
-        ws.send(
-          JSON.stringify({
-            type: "connect",
-            sdp: connection.localDescription,
-            token: await (await fetch(`${apiBase}/stream/auth`, { credentials: "include" })).text(),
-          }),
-        )
-      }
-      connection.oniceconnectionstatechange = () => {
-        console.log("oniceconnectionstatechange", connection.iceConnectionState)
-        if (connection.iceConnectionState === "disconnected") {
-          messages.push({
-            type: "system",
-            fragments: parseMessage("Disconnected from server!", emotes),
-          })
-        }
-      }
-      connection.onsignalingstatechange = () => {
-        console.log("onsignalingstatechange", connection.signalingState)
-      }
-
-      const chat = connection.createDataChannel("chat")
-      chat.onmessage = (event) => {
-        let data:
-          | { type: "system"; message: string }
-          | {
-              type: "message"
-              time: number
-              message: string
-              username: string
-              colour: number
-              replying: null | MessageId
-              id: MessageId
-            } = JSON.parse(event.data)
-        const fragments = parseMessage(data.message, emotes)
-        switch (data.type) {
-          case "system":
-            messages.push({ type: "system", fragments })
-            break
-          case "message":
-            messages.push({
-              type: "message",
-              time: new Date(data.time),
-              username: data.username,
-              fragments,
-              colour: data.colour,
-              id: data.id,
-              replying: data.replying,
-              filtered:
-                (data.username != username && moderation.match(data.message))
-                || (moderation.links.block
-                  && fragments.some((fragment) => fragment.type == "text" && isURL(fragment.text))),
-              roles: server.user
-                .getRoles(data.username, username)
-                .then((userRoles) => userRoles.map((role) => roles.find(({ id }) => id === role)!)),
-            })
-            break
-        }
-      }
-      const poll = connection.createDataChannel("poll")
-      poll.onmessage = (event) => {
-        const data: { type: "update"; polls: Poll[] } = JSON.parse(event.data)
-        switch (data.type) {
-          case "update":
-            polls = data.polls
-            break
-        }
-      }
-
-      connection.addTransceiver("video", { direction: "recvonly" })
-      connection.addTransceiver("audio", { direction: "recvonly" })
-
-      rtc = { chat, poll, connection }
-    }
-
+    server.emotes().then((data) => (emotes = data))
     return () => {
-      ws.close()
       connection.close()
+      if (ws) ws.close()
     }
   })
 </script>
@@ -368,7 +391,7 @@
       class="flex flex-col py-4 grow gap-4 border-t md:border-t-0 min-h-0"
       minSize={20}
     >
-      <Chat bind:rtc user={data.user} emotes={data.emotes} {username} {roles} bind:messages />
+      <Chat bind:rtc user={data.user} {emotes} {username} {roles} bind:messages />
     </ResizablePane>
   </ResizablePaneGroup>
 {/snippet}

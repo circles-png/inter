@@ -72,7 +72,6 @@
 
 <div class="flex flex-col grow overflow-y-auto min-h-0" bind:this={messagesContainer}>
   {#each m as message, index (message.type == "message" ? message.id : index)}
-    {@const { fragments } = message}
     <div class="flex flex-col">
       {#if message.type == "message" && message.replying}
         {@const replyingTo = m.find(
@@ -96,7 +95,8 @@
         class={[
           "flex gap-2 items-center px-4 group transition",
           user
-            && fragments.some(
+            && message.type == "message"
+            && message.fragments.some(
               (fragment) => fragment.type == "text" && fragment.text == user?.username,
             )
             && "bg-red-500/20 border-l-4 border-red-500",
@@ -169,7 +169,11 @@
             </HoverCard>
           {/if}
           {#if message.type === "system" || !message.filtered}
-            <Fragments {fragments} />
+            <Fragments
+              fragments={message.type === "system"
+                ? [{ type: "text", text: message.text }]
+                : message.fragments}
+            />
           {:else}
             <span class="text-muted-foreground">
               <Button

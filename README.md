@@ -57,7 +57,7 @@ Open a terminal at `./backend` and use `python -m poetry install` or `python -m 
 
 ### Starting the server and accessing the PWA
 
-In `./backend`, use `python -m poetry run quart run -A src/inter run -h 0.0.0.0 -p 5001` to start a server listening on all interfaces on port 5001.
+In `./backend`, use `PROD=1 python -m poetry run quart -A src/inter run -h 0.0.0.0 -p 5001` to start a server listening on all interfaces on port 5001.
 
 Navigate to `localhost` or the server machine's internal LAN IP address at port 5001 to access the PWA.
 

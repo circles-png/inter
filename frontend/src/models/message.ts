@@ -4,7 +4,7 @@ export type Fragment =
   | { type: "emote-stack"; emotes: Emote[] }
   | { type: "text"; text: string }
 export type Message =
-  | { type: "system"; fragments: Fragment[] }
+  | { type: "system"; text: string }
   | {
       type: "message"
       time: Date

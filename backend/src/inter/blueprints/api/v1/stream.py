@@ -295,7 +295,7 @@ async def ws(username: str):
                             json.dumps(
                                 {
                                     "type": "system",
-                                    "message": "Connected to chat! Hola",
+                                    "message": "Connected to chat!",
                                 }
                             )
                         )

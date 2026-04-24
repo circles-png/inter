@@ -1,7 +1,9 @@
 import asyncio
 from os import environ
+import re
 from typing import Any, Callable
 import quart
+from quart_cors import cors  # type: ignore
 from quart_sqlalchemy.framework import QuartSQLAlchemy
 from quart_sqlalchemy import (
     AsyncBindConfig,
@@ -12,7 +14,11 @@ from quart_sqlalchemy import (
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert
 
-app = quart.Quart(__name__, static_folder="../../../frontend/build")
+app = cors(
+    quart.Quart(__name__, static_folder="../../../frontend/build"),
+    allow_origin=re.compile(""),
+    allow_credentials=True,
+)
 db = QuartSQLAlchemy(
     config=SQLAlchemyConfig(
         binds={

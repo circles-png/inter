@@ -3,7 +3,6 @@ from http.client import NOT_FOUND, UNAUTHORIZED
 from logging import getLogger
 import logging
 from pathlib import Path
-from socket import AF_INET, SOCK_DGRAM, socket
 import httpx
 
 
@@ -13,32 +12,9 @@ def create_app():
     from os import environ
     from os.path import exists, join
     import quart
-    from quart_cors import cors  # type: ignore
     from inter.blueprints.api import api
     from inter.common import app
 
-    cors(
-        app,
-        allow_origin=[
-            "http://localhost:5001",
-            # Unpack a single element list containing the local IP address into the allowed origins
-            # list. We create the socket and pass it to a lambda function in order to connect and
-            # get the local IP address in one statement.
-            *(
-                [
-                    (
-                        lambda socket: f"http://{(
-                            socket.connect(("8.8.8.8", 80)),
-                            socket.getsockname(),
-                        )[1][0]}:5001"
-                    )(socket(AF_INET, SOCK_DGRAM))
-                ]
-                if not environ.get("PROD")
-                else []
-            ),
-        ],
-        allow_credentials=True,
-    )
     app.register_error_handler(NOT_FOUND, lambda _: ("", NOT_FOUND))
     app.register_error_handler(UNAUTHORIZED, lambda _: ("", UNAUTHORIZED))
 

@@ -11,7 +11,6 @@
   import type { Message } from "../../../../models/message"
   import type { User } from "../../../../models/user"
   import { onMount } from "svelte"
-  import { parseMessage } from "$lib/utils.svelte"
   import Clock4 from "@lucide/svelte/icons/clock-4"
   import { Toggle } from "$lib/components/ui/toggle"
 
@@ -67,10 +66,7 @@
   }
 
   onMount(() => {
-    messages.push({
-      type: "system",
-      fragments: parseMessage("Connecting to chat... Waiting", emotes),
-    })
+    messages.push({ type: "system", text: "Connecting to chat..." })
   })
 </script>
 
