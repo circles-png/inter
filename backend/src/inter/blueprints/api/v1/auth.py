@@ -5,7 +5,6 @@ information.
 
 from hashlib import sha256
 from http.client import BAD_REQUEST, CONFLICT, CREATED, OK, UNAUTHORIZED
-from os import environ
 import re
 import quart
 from quart import request
@@ -66,7 +65,6 @@ async def signup():
         "session_token",
         token,
         max_age=86400,
-        secure=bool(environ.get("PROD")),
         samesite="Lax",
     )
     return response
@@ -112,7 +110,6 @@ async def login():
             "session_token",
             token,
             max_age=86400,
-            secure=bool(environ.get("PROD")),
             samesite="Lax",
         )
         return response
