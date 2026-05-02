@@ -33,6 +33,7 @@
   import MessageContent from "./Fragments.svelte"
   import Chat from "./Chat.svelte"
   import type { Message, MessageId } from "../../../../models/message.ts"
+  import { invalidateAll } from "$app/navigation"
 
   let { data } = $props()
   let { displayName, colour, username } = $derived(data.profile)
@@ -67,6 +68,28 @@
   })
 
   onMount(() => {
+    server.emotes().then((data) => {
+      emotes = data
+
+      messages = messages.map((message) => {
+        if (message.type !== "message") return message
+        return {
+          ...message,
+          fragments: parseMessage(
+            message.fragments
+              .map((fragment) =>
+                fragment.type == "text"
+                  ? fragment.text
+                  : fragment.type == "emote"
+                    ? fragment.name
+                    : "",
+              )
+              .join(" "),
+            emotes,
+          ),
+        }
+      })
+    })
     let connection = createConnection()
     let ws = createWebSocket()
     function createConnection() {
@@ -84,8 +107,10 @@
       })()
       if (!newWs) return
       newWs.onmessage = async (event) => {
-        const data: { type: "connect"; sdp: RTCSessionDescriptionInit } | { type: "roles" } =
-          JSON.parse(event.data)
+        const data:
+          | { type: "connect"; sdp: RTCSessionDescriptionInit }
+          | { type: "roles" }
+          | { type: "disconnect" } = JSON.parse(event.data)
 
         if (data.type == "connect") {
           const answer = data.sdp
@@ -105,6 +130,15 @@
                 }
               : message,
           )
+        }
+
+        if (data.type == "disconnect") {
+          messages.push({ type: "system", text: "Stream has ended." })
+          video.srcObject = null
+          if (ws) ws.close()
+          ws = createWebSocket()
+          connection.close()
+          connection = createConnection()
         }
       }
 
@@ -178,6 +212,8 @@
               messages.push({ type: "system", text: data.message })
               break
             case "message":
+              if (messages.some((message) => message.type == "message" && message.id == data.id))
+                return
               messages.push({
                 type: "message",
                 time: new Date(data.time),
@@ -219,17 +255,23 @@
       return newWs
     }
 
-    server.emotes().then((data) => (emotes = data))
+    const interval = setInterval(async () => {
+      await invalidateAll()
+    }, 5000)
+
     return () => {
       connection.close()
       if (ws) ws.close()
+      clearInterval(interval)
     }
   })
 </script>
 
 {#if isMobile.current}
   {@render stream()}
-  <div class="flex flex-col grow min-h-0">{@render rightSidebar()}</div>
+  <div class="flex flex-col grow min-h-0">
+    {@render rightSidebar()}
+  </div>
 {:else}
   <ResizablePaneGroup direction="horizontal" class="flex grow">
     <ResizablePane minSize={50}>

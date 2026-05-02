@@ -84,6 +84,15 @@ async def start_stream():
                                     }
                                 )
                             )
+                        await client.tx_queue.put(
+                            {
+                                "type": "connect",
+                                "sdp": {
+                                    "sdp": connection.localDescription.sdp,
+                                    "type": connection.localDescription.type,
+                                },
+                            }
+                        )
 
                     for follower in await user.get_notified(session):
                         notify = await follower.get_notify(user, session)
@@ -128,6 +137,8 @@ async def start_stream():
                 connection.remove_all_listeners()
                 stream.connection = None
                 stream.start = None
+                for client in stream.clients:
+                    await client.tx_queue.put({"type": "disconnect"})
                 stream.clients = []
 
         @connection.on("datachannel")
@@ -188,8 +199,37 @@ async def stream_tx_delete(username: str):
     """
     Receive a request to delete the stream for the user with the given username.
     """
-    # TODO authenticate this route and implement it
-    print("TX endpoint deleted at username:", username)
+    from inter.models.db.user import User
+
+    token = request.headers.get("Authorization")
+    if not token:
+        return abort(UNAUTHORIZED)
+    async with get_session() as session, session.begin():
+        user = await User.find_by_token(session, token[len("Bearer ") :])
+        if not user:
+            return abort(UNAUTHORIZED)
+        user_id = user.id
+        stream = streams[user_id]
+        connection = stream.connection
+
+    if stream.video:
+        stream.video.stop()
+    if stream.audio:
+        stream.audio.stop()
+    stream.video = None
+    stream.audio = None
+    stream.relay = aiortc.contrib.media.MediaRelay()
+    for client in stream.clients:
+        for track in client.tracks:
+            track.stop()
+    if connection:
+        await connection.close()
+        connection.remove_all_listeners()
+    stream.connection = None
+    stream.start = None
+    for client in stream.clients:
+        await client.tx_queue.put({"type": "disconnect"})
+    stream.clients = []
     return quart.Response(status=OK)
 
 
@@ -304,7 +344,6 @@ async def ws(username: str):
                         async def _(data: str):
                             if not viewer:
                                 return
-                            print("message", data)
                             text, replying = itemgetter("text", "replying")(
                                 json.loads(data)
                             )

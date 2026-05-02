@@ -176,7 +176,17 @@ async def stream(username: str):
                 "title": user.stream_title,
                 "game": user.stream_game,
                 "start": stream.start,
-                "viewers": len(stream.clients) if stream.connection else None,
+                "viewers": (
+                    len(
+                        set(
+                            client.viewer
+                            for client in stream.clients
+                            if client.viewer is not None
+                        )
+                    )
+                    if stream.connection
+                    else None
+                ),
             }
         )
 

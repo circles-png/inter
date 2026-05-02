@@ -70,7 +70,6 @@
       data={{
         following: data.following,
         user: data.user,
-        emotes: data.emotes,
         stream: data.stream,
         profile: {
           colour: data.user.colour,
@@ -80,6 +79,7 @@
           username: data.user.username,
         },
         notify: data.notify,
+        roles: data.roles,
       }}
     />
   </div>

@@ -115,7 +115,7 @@
         <p class="wrap-anywhere grow">
           {#if message.type === "message"}
             {#await message.roles then userRoles}
-              {#each userRoles as { id, name } (id)}
+              {#each userRoles as { id, name }, index (index)}
                 <Tooltip>
                   <TooltipTrigger>
                     <img
