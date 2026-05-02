@@ -72,7 +72,8 @@ async def create_initial_streams() -> None:
         for id in (await session.scalars(select(User.id))).all():
             streams[id] = Stream()
 
-
-asyncio.run(create_initial_streams())
+@app.before_serving
+async def before_serving() -> None:
+    asyncio.run(create_initial_streams())
 
 COLOUR_COUNT = 17

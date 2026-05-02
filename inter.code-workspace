@@ -31,6 +31,9 @@
       "*.css": "tailwindcss"
     },
     "editor.tabSize": 2,
+    "python.analysis.ignore": [
+      "vendor/**"
+    ],
   },
   "tasks": {
     "version": "2.0.0",

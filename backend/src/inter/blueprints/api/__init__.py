@@ -29,9 +29,9 @@ async def random():
     """
     async with get_session() as session, session.begin():
         user = await User.choice(session)
-    if not user:
-        return quart.Response(status=NOT_FOUND)
-    return user.username
+        if not user:
+            return quart.Response(status=NOT_FOUND)
+        return user.username
 
 
 @api.route("/search/<string:query>", methods=["GET"])

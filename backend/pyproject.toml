@@ -24,7 +24,6 @@ dependencies = [
 packages = [{ include = "inter", from = "src" }]
 
 [tool.pytest]
-pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.poetry.group.dev.dependencies]
