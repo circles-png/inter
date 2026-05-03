@@ -1,10 +1,13 @@
 import asyncio
+import importlib
 from hypothesis import given
 from hypothesis.strategies import text, one_of, sampled_from, lists
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
+import inter.common
+importlib.reload(inter.common)
 from inter import create_app
 app = create_app()
 
