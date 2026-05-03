@@ -1,4 +1,3 @@
-import asyncio
 from os import environ
 import re
 from typing import Any, Callable
@@ -74,6 +73,6 @@ async def create_initial_streams() -> None:
 
 @app.before_serving
 async def before_serving() -> None:
-    asyncio.run(create_initial_streams())
+    await create_initial_streams()
 
 COLOUR_COUNT = 17
