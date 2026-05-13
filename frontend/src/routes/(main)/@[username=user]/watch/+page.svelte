@@ -216,7 +216,7 @@
                 return
               messages.push({
                 type: "message",
-                time: new Date(data.time),
+                time: new Date(data.time * 1000),
                 username: data.username,
                 fragments,
                 colour: data.colour,
