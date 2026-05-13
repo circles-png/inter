@@ -428,7 +428,7 @@ async def ws(username: str):
                                             for option in poll.options
                                         )
                                         or client.viewer == streamer_id
-                                    )  # TODO include moderators
+                                    )
                                 )
                                 return {
                                     "id": poll.id,
@@ -518,7 +518,6 @@ async def ws(username: str):
                                         session.begin(),
                                     ):
                                         user = await session.get(User, viewer)
-                                        # TODO include moderators
                                         if not user or user.id != streamer_id:
                                             return
                                     poll = Poll(

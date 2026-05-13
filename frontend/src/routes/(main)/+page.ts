@@ -8,6 +8,9 @@ export const load: PageLoad = async ({ fetch }) => {
       (await server.stream.homepage()).map(async (username) => ({
         ...(await server.user.stream(username)),
         username,
+        recommended: (await server.self.following()).some(
+          (following) => following.username === username,
+        ),
       })),
     ),
   }
