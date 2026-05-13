@@ -28,7 +28,8 @@ testpaths = ["tests"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.3"
-hypothesis = "^6.151.9"
+hypothesis = "^6.152.7"
+anyio = "4.13.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

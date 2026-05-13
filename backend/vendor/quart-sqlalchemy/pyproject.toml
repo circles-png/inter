@@ -12,7 +12,7 @@ dependencies = [
     "blinker>=1.5",
     "SQLAlchemy[asyncio]<2.1.0,>=2.0.0",
     "SQLAlchemy-Utils",
-    "anyio>=3.0.0,<4",
+    "anyio>=4.13.0",
     "pydantic~=1.10.13",
     "tenacity~=8.0.1",
     "sqlapagination",
