@@ -109,12 +109,20 @@
       newWs.onmessage = async (event) => {
         const data:
           | { type: "connect"; sdp: RTCSessionDescriptionInit }
+          | { type: "start" }
           | { type: "roles" }
           | { type: "disconnect" } = JSON.parse(event.data)
 
         if (data.type == "connect") {
           const answer = data.sdp
           await connection.setRemoteDescription(answer)
+        }
+
+        if (data.type == "start") {
+          if (ws) ws.close()
+          ws = createWebSocket()
+          connection.close()
+          connection = createConnection()
         }
 
         if (data.type == "roles") {

@@ -38,6 +38,16 @@ from inter.models.poll import Option, Poll
 from inter.common import get_session
 from inter.models.stream import Stream
 
+import aiortc.codecs.vpx
+import aiortc.codecs.h264
+
+aiortc.codecs.vpx.DEFAULT_BITRATE = 5_000_000
+aiortc.codecs.vpx.MAX_BITRATE = 10_000_000
+aiortc.codecs.vpx.MAX_FRAME_RATE = 60
+
+aiortc.codecs.h264.DEFAULT_BITRATE = 5_000_000
+aiortc.codecs.h264.MAX_BITRATE = 10_000_000
+aiortc.codecs.h264.MAX_FRAME_RATE = 60
 
 stream = quart.Blueprint("stream", __name__, url_prefix="/stream/")
 streams: dict[int, Stream] = {}
@@ -86,11 +96,7 @@ async def start_stream():
                             )
                         await client.tx_queue.put(
                             {
-                                "type": "connect",
-                                "sdp": {
-                                    "sdp": connection.localDescription.sdp,
-                                    "type": connection.localDescription.type,
-                                },
+                                "type": "start",
                             }
                         )
 
