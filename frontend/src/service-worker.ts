@@ -31,12 +31,10 @@ self.addEventListener("push", (event) => {
   if (!event.data) return
   const { displayName, username, url } = event.data.json()
   event.waitUntil(
-    self.registration.showNotification(`${displayName || `@${username}`} started streaming!`, {
-      body: "Join now to watch live.",
-      icon: `http://localhost:5001/api/v1/user/${username}/avatar`,
-      badge: `http://localhost:5001/api/v1/user/${username}/avatar`,
-      data: { url },
-    }),
+    self.registration.showNotification(
+      `${displayName || `@${username}`} started streaming on Inter!`,
+      { body: "Join now to watch live.", data: { url } },
+    ),
   )
 })
 
@@ -76,10 +74,9 @@ self.addEventListener("fetch", (event) => {
           cache.put(event.request, response.clone())
         }
         return response
-      } catch (error) {
+      } catch {
         const response = await cache.match(event.request)
         if (response) return response
-        throw error
       }
     })(),
   )

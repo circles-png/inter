@@ -35,6 +35,7 @@
   import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
   import { InputGroup, InputGroupAddon, InputGroupInput } from "$lib/components/ui/input-group"
   import Search from "@lucide/svelte/icons/search"
+  import PanelLeft from "@lucide/svelte/icons/panel-left"
   import { Spinner } from "$lib/components/ui/spinner"
   import {
     Empty,
@@ -231,14 +232,13 @@
   {@const sidebar = useSidebar()}
   <div class="flex p-2 gap-2 md:hidden">
     <div class="flex p-2 bg-sidebar rounded-lg border grow justify-between">
-      <Logo wordmark />
+      <Logo wordmark class="h-8" />
       <Button
         onclick={() => sidebar.toggle()}
         variant="ghost"
         class="bg-transparent! px-1 py-0 h-8"
       >
         <AvatarGroup.Root>
-          <AvatarGroup.Member class="ring-sidebar"></AvatarGroup.Member>
           {#each data.following.slice(0, 3) as followee (followee.username)}
             <AvatarGroup.Member class="ring-sidebar">
               <AvatarGroup.MemberImage
@@ -248,6 +248,11 @@
               <AvatarGroup.MemberFallback>
                 <Logo class="fill-muted-foreground size-4" />
               </AvatarGroup.MemberFallback>
+            </AvatarGroup.Member>
+          {:else}
+            <AvatarGroup.Member class="ring-sidebar flex items-center justify-center">
+              <PanelLeft />
+              <span class="sr-only">Toggle Sidebar</span>
             </AvatarGroup.Member>
           {/each}
         </AvatarGroup.Root>
