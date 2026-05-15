@@ -5,6 +5,7 @@
   import { FieldGroup, FieldSet } from "$lib/components/ui/field"
   import { goto, invalidateAll } from "$app/navigation"
   import { resolve } from "$app/paths"
+  import Logo from "$lib/components/logo.svelte"
 
   let username = $state("")
   let password = $state("")
@@ -32,7 +33,11 @@
       }}
     >
       <FieldSet>
-        <h1 class="text-2xl font-semibold text-center">Create an account</h1>
+        <h1
+          class="text-2xl font-semibold text-center flex gap-2 items-center justify-center [&_svg]:h-11"
+        >
+          Create an account on <Logo wordmark />
+        </h1>
         <FieldGroup>
           <Field
             id="username"

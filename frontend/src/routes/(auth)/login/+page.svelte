@@ -5,6 +5,7 @@
   import { goto, invalidateAll } from "$app/navigation"
   import { resolve } from "$app/paths"
   import { server } from "$lib/utils.svelte"
+  import Logo from "$lib/components/logo.svelte"
   let username = $state("")
   let password = $state("")
   let submit: Promise<void> | null = $state(null)
@@ -26,7 +27,11 @@
       }}
     >
       <FieldSet>
-        <h1 class="text-2xl font-semibold text-center">Log in to your existing account</h1>
+        <h1
+          class="text-2xl font-semibold text-center flex gap-2 items-center justify-center [&_svg]:h-11"
+        >
+          Log in to <Logo wordmark />
+        </h1>
         <FieldGroup>
           <Field
             id="username"

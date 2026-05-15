@@ -11,11 +11,9 @@
 
 {#if wordmark}
   <svg
-    width="77"
-    height="32"
     viewBox="0 0 77 32"
     xmlns="http://www.w3.org/2000/svg"
-    class={cn("fill-foreground shrink-0", classNames)}
+    class={cn("fill-foreground shrink-0 inline", classNames)}
     {...props}
   >
     <path
