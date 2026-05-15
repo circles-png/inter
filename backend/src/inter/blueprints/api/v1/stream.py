@@ -389,6 +389,16 @@ async def ws(username: str):
                                         return
                                     else:
                                         await session.delete(moderation)
+                                if len(text) > 500:
+                                    channel.send(
+                                        json.dumps(
+                                            {
+                                                "type": "system",
+                                                "message": "Your message exceeds the maximum length of 500 characters.",
+                                            }
+                                        )
+                                    )
+                                    return
 
                                 message = json.dumps(
                                     {
