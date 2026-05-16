@@ -29,11 +29,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("push", (event) => {
   if (!event.data) return
-  const { displayName, username, url } = event.data.json()
+  const { displayName, username, url, game, title } = event.data.json()
   event.waitUntil(
     self.registration.showNotification(
-      `${displayName || `@${username}`} started streaming on Inter!`,
-      { body: "Join now to watch live.", data: { url } },
+      `${displayName || `@${username}`} started streaming ${game}: ${title}`,
+      { body: "Join now to watch live on Inter.", data: { url } },
     ),
   )
 })
@@ -83,15 +83,16 @@ self.addEventListener("fetch", (event) => {
 })
 
 self.addEventListener("notificationclick", (event) => {
-  event.preventDefault()
   event.notification.close()
   const { url } = event.notification.data
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients: readonly WindowClient[]) => {
-      clients.forEach((client) => {
-        if (client.url === url && "focus" in client) return client.focus()
-      })
-      if (self.clients.openWindow) return self.clients.openWindow(url)
-    }),
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients: readonly WindowClient[]) => {
+        clients.forEach((client) => {
+          if (client.url === url && "focus" in client) return client.focus()
+        })
+        if (self.clients.openWindow) return self.clients.openWindow(url)
+      }),
   )
 })

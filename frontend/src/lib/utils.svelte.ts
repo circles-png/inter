@@ -228,16 +228,18 @@ export function serverWithFetch(f: typeof window.fetch) {
           }
         })
       },
-      async updatePassword(current: string, newPassword: string, reenter: string) {
-        await this.postJSON("/update/password", { current, newPassword, reenter }).then(
-          async (response) => {
-            if (!response.ok) {
-              const text = await response.text()
-              toast.error("Error while updating password", { description: text })
-              return Promise.reject(text)
-            }
-          },
-        )
+      async updatePassword(currentPassword: string, newPassword: string, reenterPassword: string) {
+        await this.postJSON("/update/password", {
+          currentPassword,
+          newPassword,
+          reenterPassword,
+        }).then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text()
+            toast.error("Error while updating password", { description: text })
+            return Promise.reject(text)
+          }
+        })
       },
     },
     roles: {

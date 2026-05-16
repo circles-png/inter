@@ -119,6 +119,8 @@ async def start_stream():
                                         "displayName": user.display_name,
                                         "username": user.username,
                                         "url": f"http://{request.host}/@{user.username}/watch",
+                                        "game": user.stream_game,
+                                        "title": user.stream_title,
                                     }
                                 ),
                                 environ["PRIVATE_VAPID_KEY"],

@@ -32,6 +32,7 @@
     DialogTrigger,
   } from "$lib/components/ui/dialog"
   import { buttonVariants } from "$lib/components/ui/button"
+  import { page } from "$app/state"
 
   let { user }: { user: User } = $props()
   let showToken = $state(false)
@@ -104,13 +105,17 @@
     </InputGroupAddon>
   </InputGroup>
   <FieldDescription>
-    This is your stream token used for authentication. Keep it secret. In OBS Studio's {@render two(
+    This is your stream token used for authentication. Keep it secret.
+    <br /><br />
+    Use this token to configure your streaming software. In OBS Studio's {@render two(
       "Settings",
       "Stream",
     )}, select {@render two("Service", "WHIP")} and enter the token in {@render two(
       "Destination",
       "Bearer Token",
-    )}.
+    )}. Then enter the server URL
+    <code class="select-all">{`${page.url.origin}/api/v1/stream`}</code>
+    in {@render two("Destination", "Server")}.
   </FieldDescription>
 </Field>
 
