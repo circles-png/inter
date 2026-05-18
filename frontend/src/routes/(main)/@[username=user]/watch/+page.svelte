@@ -111,7 +111,8 @@
           | { type: "connect"; sdp: RTCSessionDescriptionInit }
           | { type: "start" }
           | { type: "roles" }
-          | { type: "disconnect" } = JSON.parse(event.data)
+          | { type: "disconnect" }
+          | { type: "delete"; id: MessageId } = JSON.parse(event.data)
 
         if (data.type == "connect") {
           const answer = data.sdp
@@ -147,6 +148,12 @@
           ws = createWebSocket()
           connection.close()
           connection = createConnection()
+        }
+
+        if (data.type == "delete") {
+          messages = messages.filter(
+            (message) => message.type !== "message" || message.id !== data.id,
+          )
         }
       }
 

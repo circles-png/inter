@@ -23,6 +23,7 @@
   import ShieldOff from "@lucide/svelte/icons/shield-off"
   import { Tooltip, TooltipContent, TooltipTrigger } from "$lib/components/ui/tooltip"
   import Toggle from "$lib/components/ui/toggle/toggle.svelte"
+  import Trash_2 from "@lucide/svelte/icons/trash-2"
 
   let {
     messages = $bindable(),
@@ -45,22 +46,12 @@
   } = $props()
   let messagesContainer: HTMLDivElement
   let chatLogs: string | null = $state(null)
-  let moderator = $state(false)
 
   const m = $derived(messages.filter((message) => message !== undefined))
   let userRolesPromise: Promise<null | number[]> = $state(Promise.resolve(null))
 
   $effect(() => {
     if (chatLogs) userRolesPromise = server.user.getRoles(chatLogs, username)
-  })
-
-  $effect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    messages
-    if (!user) return
-    server.user
-      .getRoles(user?.username, username)
-      .then((userRoles) => (moderator = userRoles.includes(0)))
   })
 
   $effect(() => {
@@ -195,35 +186,56 @@
           <ButtonGroup
             class="flex md:opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              class="h-6 w-6 text-green-300 hover:text-green-500 hover:bg-green-950/50!"
-              onclick={reply}
-            >
-              <Reply class="size-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                class={buttonVariants({ variant: "ghost", size: "sm", class: "h-6 w-6" })}
+            {#if user}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="size-6 text-green-300 hover:text-green-500 hover:bg-green-950/50!"
+                onclick={reply}
               >
-                <Ellipsis class="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onclick={reply}>
-                  <Reply class="size-4" />
-                  <p>
-                    <span class="text-green-400">Reply</span> to {message.username}
-                  </p>
-                </DropdownMenuItem>
-                {#if !inChatLogs}
-                  <DropdownMenuItem onclick={() => (chatLogs = message.username)}>
-                    <Logs />
-                    See chat logs
-                  </DropdownMenuItem>
-                {/if}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <Reply class="size-4" />
+              </Button>
+            {/if}
+            {#if user || !inChatLogs}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  class={buttonVariants({ variant: "ghost", size: "sm", class: "size-6" })}
+                >
+                  <Ellipsis class="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {#if user}
+                    <DropdownMenuItem onclick={reply}>
+                      <Reply class="size-4" />
+                      <p>
+                        <span class="text-green-400">Reply</span> to {message.username}
+                      </p>
+                    </DropdownMenuItem>
+                  {/if}
+                  {#if !inChatLogs}
+                    <DropdownMenuItem onclick={() => (chatLogs = message.username)}>
+                      <Logs />
+                      See chat logs
+                    </DropdownMenuItem>
+                  {/if}
+                  {#if user}
+                    {#await server.user
+                      .getRoles(user.username, username)
+                      .then((userRoles) => userRoles.includes(0)) then moderator}
+                      {#if moderator || user.username == username}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onclick={() => server.user.deleteMessage(message.id, username)}
+                        >
+                          <Trash_2 class="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      {/if}
+                    {/await}
+                  {/if}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            {/if}
           </ButtonGroup>
         {/if}
       </div>
@@ -238,98 +250,105 @@
         <SheetTitle>
           Chat logs for {chatLogs}
         </SheetTitle>
-        {#if (!!chatLogs && chatLogs != username && user?.username == username) || moderator}
-          <span class="text-sm text-muted-foreground">Roles</span>
-          {#await userRolesPromise then userRoles}
-            {#if userRoles}
-              <ButtonGroup>
-                {#each roles as { id, name } (id)}
+        {#if user}
+          {#await server.user
+            .getRoles(user?.username, username)
+            .then((userRoles) => userRoles.includes(0)) then moderator}
+            {#if (!!chatLogs && chatLogs != username && user.username == username) || moderator}
+              <span class="text-sm text-muted-foreground">Roles</span>
+              {#await userRolesPromise then userRoles}
+                {#if userRoles}
+                  <ButtonGroup>
+                    {#each roles as { id, name } (id)}
+                      <Tooltip>
+                        <TooltipTrigger>
+                          {#snippet child({ props })}
+                            <Toggle
+                              {...props}
+                              bind:pressed={
+                                () => userRoles.includes(id),
+                                () => {
+                                  if (!chatLogs) return
+                                  const next = [...userRoles]
+                                  if (next.includes(id)) next.splice(next.indexOf(id), 1)
+                                  else next.push(id)
+                                  server.user.setRoles(chatLogs, username, next).then(() => {
+                                    if (!chatLogs) return
+                                    userRolesPromise = server.user.getRoles(chatLogs, username)
+                                    messages = messages.map((message) =>
+                                      message.type == "message"
+                                        ? {
+                                            ...message,
+                                            roles: server.user
+                                              .getRoles(message.username, username)
+                                              .then((userRoles) =>
+                                                userRoles.map(
+                                                  (role) => roles.find(({ id }) => id === role)!,
+                                                ),
+                                              ),
+                                          }
+                                        : message,
+                                    )
+                                  })
+                                }
+                              }
+                              class="data-[state=off]:opacity-50"
+                            >
+                              <img src={server.roles.icon(id)} alt={name} class="size-6" />
+                            </Toggle>
+                          {/snippet}
+                        </TooltipTrigger>
+                        <TooltipContent>{name}</TooltipContent>
+                      </Tooltip>
+                    {/each}
+                  </ButtonGroup>
+                {/if}
+              {/await}
+              <span class="text-sm text-muted-foreground">Moderate user</span>
+              <ButtonGroup class="overflow-x-auto">
+                <ButtonGroup>
                   <Tooltip>
-                    <TooltipTrigger>
-                      {#snippet child({ props })}
-                        <Toggle
-                          {...props}
-                          bind:pressed={
-                            () => userRoles.includes(id),
-                            () => {
-                              if (!chatLogs) return
-                              const next = [...userRoles]
-                              if (next.includes(id)) next.splice(next.indexOf(id), 1)
-                              else next.push(id)
-                              server.user.setRoles(chatLogs, username, next).then(() => {
-                                if (!chatLogs) return
-                                userRolesPromise = server.user.getRoles(chatLogs, username)
-                                messages = messages.map((message) =>
-                                  message.type == "message"
-                                    ? {
-                                        ...message,
-                                        roles: server.user
-                                          .getRoles(message.username, username)
-                                          .then((userRoles) =>
-                                            userRoles.map(
-                                              (role) => roles.find(({ id }) => id === role)!,
-                                            ),
-                                          ),
-                                      }
-                                    : message,
-                                )
-                              })
-                            }
-                          }
-                          class="data-[state=off]:opacity-50"
-                        >
-                          <img src={server.roles.icon(id)} alt={name} class="size-6" />
-                        </Toggle>
-                      {/snippet}
+                    <TooltipTrigger
+                      onclick={async () =>
+                        chatLogs && server.user.moderate(chatLogs, username, undefined)}
+                      class={buttonVariants({ variant: "outline", size: "sm" })}
+                    >
+                      <ShieldOff />
                     </TooltipTrigger>
-                    <TooltipContent>{name}</TooltipContent>
+                    <TooltipContent>Pardon user</TooltipContent>
                   </Tooltip>
-                {/each}
+                </ButtonGroup>
+                <ButtonGroup>
+                  {#each [["30s", 30, "30 seconds"], ["1m", 60, "1 minute"], ["5m", 5 * 60, "5 minutes"], ["30m", 30 * 60, "30 minutes"], ["1h", 60 * 60, "1 hour"], ["1d", 60 * 60 * 24, "1 day"]] as const as [label, duration, description] (label)}
+                    <Tooltip>
+                      <TooltipTrigger
+                        onclick={async () =>
+                          chatLogs && server.user.moderate(chatLogs, username, duration)}
+                        class={buttonVariants({ variant: "outline", size: "sm", class: "text-xs" })}
+                      >
+                        {label}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Timeout for {description} ({duration} seconds)
+                      </TooltipContent>
+                    </Tooltip>
+                  {/each}
+                </ButtonGroup>
+                <ButtonGroup>
+                  <Tooltip>
+                    <TooltipTrigger
+                      onclick={async () =>
+                        chatLogs && server.user.moderate(chatLogs, username, null)}
+                      class={buttonVariants({ variant: "outline", size: "sm" })}
+                    >
+                      <ShieldBan />
+                    </TooltipTrigger>
+                    <TooltipContent>Ban user</TooltipContent>
+                  </Tooltip>
+                </ButtonGroup>
               </ButtonGroup>
             {/if}
           {/await}
-          <span class="text-sm text-muted-foreground">Moderate user</span>
-          <ButtonGroup class="overflow-x-auto">
-            <ButtonGroup>
-              <Tooltip>
-                <TooltipTrigger
-                  onclick={async () =>
-                    chatLogs && server.user.moderate(chatLogs, username, undefined)}
-                  class={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <ShieldOff />
-                </TooltipTrigger>
-                <TooltipContent>Pardon user</TooltipContent>
-              </Tooltip>
-            </ButtonGroup>
-            <ButtonGroup>
-              {#each [["30s", 30, "30 seconds"], ["1m", 60, "1 minute"], ["5m", 5 * 60, "5 minutes"], ["30m", 30 * 60, "30 minutes"], ["1h", 60 * 60, "1 hour"], ["1d", 60 * 60 * 24, "1 day"]] as const as [label, duration, description] (label)}
-                <Tooltip>
-                  <TooltipTrigger
-                    onclick={async () =>
-                      chatLogs && server.user.moderate(chatLogs, username, duration)}
-                    class={buttonVariants({ variant: "outline", size: "sm", class: "text-xs" })}
-                  >
-                    {label}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Timeout for {description} ({duration} seconds)
-                  </TooltipContent>
-                </Tooltip>
-              {/each}
-            </ButtonGroup>
-            <ButtonGroup>
-              <Tooltip>
-                <TooltipTrigger
-                  onclick={async () => chatLogs && server.user.moderate(chatLogs, username, null)}
-                  class={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <ShieldBan />
-                </TooltipTrigger>
-                <TooltipContent>Ban user</TooltipContent>
-              </Tooltip>
-            </ButtonGroup>
-          </ButtonGroup>
         {/if}
       </SheetHeader>
       <ChatMessages

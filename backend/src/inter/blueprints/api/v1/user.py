@@ -363,3 +363,41 @@ async def set_roles(username: str, subject: str):
         for client in streams[subject_user.id].clients:
             await client.tx_queue.put({"type": "roles"})
     return quart.Response(status=OK)
+
+
+@user.route("/delete", methods=["POST"])
+async def deleteMessage(username: str):
+    """
+    Delete the message with the given message ID from the chat of the user with the given username.
+    """
+    async with get_session() as session, session.begin():
+        actor = await User.from_session(session)
+        subject = await User.find_by_username(session, username)
+        message_id = await quart.request.get_data(as_text=True)
+
+        if not subject:
+            return quart.Response(status=NOT_FOUND)
+        if not (
+            actor.id == subject.id
+            or (
+                await session.execute(
+                    select(UsersRoles).where(
+                        UsersRoles.subject == subject.id,
+                        UsersRoles.target == actor.id,
+                        UsersRoles.role == MODERATOR_ROLE_ID,
+                    )
+                )
+            ).one_or_none()
+        ):
+            return quart.Response(status=FORBIDDEN)
+        stream = streams[subject.id]
+        if not stream:
+            return quart.Response(status=NOT_FOUND)
+        for index, message in enumerate(stream.chat):
+            if json.loads(message)["id"] == message_id:
+                del stream.chat[index]
+                break
+        for client in stream.clients:
+            if client.chat:
+                await client.tx_queue.put({"type": "delete", "id": message_id})
+    return quart.Response(status=OK)

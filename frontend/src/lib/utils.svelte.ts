@@ -153,6 +153,17 @@ export function serverWithFetch(f: typeof window.fetch) {
           toast.success("Updated roles successfully")
         })
       },
+      async deleteMessage(messageId: string, username: string) {
+        return this.post(`/${encodeURIComponent(username)}/delete`, messageId).then(
+          async (response) => {
+            if (!response.ok) {
+              const text = await response.text()
+              toast.error("Error while deleting message", { description: text })
+              return Promise.reject(text)
+            }
+          },
+        )
+      },
     },
     self: {
       ...createBase(f, `${apiBase}/self`),

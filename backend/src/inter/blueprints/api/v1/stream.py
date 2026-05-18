@@ -16,7 +16,6 @@ import re
 import secrets
 from typing import Literal, TypedDict
 from aiortc import (
-    MediaStreamTrack,
     RTCConfiguration,
     RTCDataChannel,
     RTCIceCandidate,
@@ -79,7 +78,6 @@ async def start_stream():
 
         @connection.on("connectionstatechange")
         async def _():
-            print(f"tx connectionstatechange", connection.connectionState)
             if connection.connectionState == "connected":
                 stream.start = datetime.now(timezone.utc).timestamp()
                 async with get_session() as session, session.begin():
@@ -128,8 +126,7 @@ async def start_stream():
                                 environ["PRIVATE_VAPID_KEY"],
                                 {"sub": f"mailto:matthew.li10@education.nsw.gov.au"},
                             )
-                        except WebPushException as exception:
-                            print(repr(exception))
+                        except WebPushException:
                             await follower.set_notify(user, session)
 
             if connection.connectionState == "closed":
@@ -151,33 +148,8 @@ async def start_stream():
                     await client.tx_queue.put({"type": "disconnect"})
                 stream.clients = []
 
-        @connection.on("datachannel")
-        def _():
-            print(f"tx datachannel")
-
-        @connection.on("icecandidate")
-        def _(candidate: RTCIceCandidate):
-            print(f"tx icecandidate", candidate)
-
-        @connection.on("icecandidateerror")
-        def _():
-            print(f"tx icecandidateerror")
-
-        @connection.on("iceconnectionstatechange")
-        def _():
-            print(f"tx iceconnectionstatechange", connection.iceConnectionState)
-
-        @connection.on("negotiationneeded")
-        def _():
-            print(f"tx negotiationneeded")
-
-        @connection.on("signalingstatechange")
-        def _():
-            print(f"tx signalingstatechange", connection.signalingState)
-
         @connection.on("track")
         async def _(track: RemoteStreamTrack):
-            print(f"tx track", track)
             if track.kind == "video":
                 stream.video = track
             elif track.kind == "audio":
@@ -323,7 +295,6 @@ async def ws(username: str):
 
                     @connection.on("connectionstatechange")
                     async def _():
-                        print(f"connectionstatechange", connection.connectionState)
                         if connection.connectionState == "closed":
                             await connection.close()
                             if new_client.chat:
@@ -623,7 +594,6 @@ async def ws(username: str):
 
                     @connection.on("datachannel")
                     async def _(channel: RTCDataChannel):
-                        print(f"datachannel", channel)
                         match channel.label:
                             case "chat":
                                 await manage_chat(channel)
@@ -631,25 +601,6 @@ async def ws(username: str):
                                 await manage_polls(channel)
                             case _:
                                 pass
-
-                    @connection.on("iceconnectionstatechange")
-                    def _():
-                        print(
-                            f"iceconnectionstatechange",
-                            connection.iceConnectionState,
-                        )
-
-                    @connection.on("negotiationneeded")
-                    def _():
-                        print(f"negotiationneeded")
-
-                    @connection.on("signalingstatechange")
-                    def _():
-                        print(f"signalingstatechange", connection.signalingState)
-
-                    @connection.on("track")
-                    def _(track: MediaStreamTrack):
-                        print(f"track")
 
                     await connection.setRemoteDescription(
                         RTCSessionDescription(data["sdp"]["sdp"], data["sdp"]["type"])
