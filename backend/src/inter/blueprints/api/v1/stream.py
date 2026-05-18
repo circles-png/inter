@@ -12,6 +12,7 @@ from http.client import CREATED, NOT_FOUND, OK, UNAUTHORIZED
 import json
 from operator import itemgetter
 from os import environ, urandom
+import re
 import secrets
 from typing import Literal, TypedDict
 from aiortc import (
@@ -27,6 +28,7 @@ import aiortc
 from aiortc.rtcrtpreceiver import RemoteStreamTrack
 from aiortc.sdp import candidate_from_sdp
 import aiortc.contrib.media
+from better_profanity import profanity  # type: ignore
 from quart import abort, request, websocket
 import quart
 from pywebpush import WebPushException, webpush_async  # type: ignore
@@ -391,6 +393,37 @@ async def ws(username: str):
                                         return
                                     else:
                                         await session.delete(moderation)
+                                streamer = await session.get(User, streamer_id)
+                                if streamer and streamer.id != viewer:
+                                    profanity.load_censor_words(  # type: ignore
+                                        [
+                                            word.strip()
+                                            for word in re.split(
+                                                "[,\n\r]+",
+                                                streamer.stream_moderation_words,
+                                            )
+                                            if word.strip()
+                                        ]
+                                    )
+                                    if profanity.contains_profanity(text):  # type: ignore
+                                        channel.send(
+                                            json.dumps(
+                                                {
+                                                    "type": "system",
+                                                    "message": "Your message was blocked by the stream's moderation filter.",
+                                                }
+                                            )
+                                        )
+                                        await streamer.moderate(user, 30, session)
+                                        channel.send(
+                                            json.dumps(
+                                                {
+                                                    "type": "system",
+                                                    "message": "You have been timed out for 30 seconds.",
+                                                }
+                                            )
+                                        )
+                                        return
                                 if len(text) > 500:
                                     channel.send(
                                         json.dumps(
@@ -400,6 +433,16 @@ async def ws(username: str):
                                             }
                                         )
                                     )
+                                    if streamer:
+                                        await streamer.moderate(user, 30, session)
+                                        channel.send(
+                                            json.dumps(
+                                                {
+                                                    "type": "system",
+                                                    "message": "You have been timed out for 30 seconds.",
+                                                }
+                                            )
+                                        )
                                     return
 
                                 message = json.dumps(

@@ -6,12 +6,19 @@
     Dialog,
     DialogClose,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
   } from "$lib/components/ui/dialog"
-  import { Field, FieldGroup, FieldLabel, FieldSet } from "$lib/components/ui/field"
+  import {
+    Field,
+    FieldDescription,
+    FieldGroup,
+    FieldLabel,
+    FieldSet,
+  } from "$lib/components/ui/field"
   import { Input } from "$lib/components/ui/input"
   import { cn } from "$lib/utils"
   import { server, useElapsed } from "$lib/utils.svelte.js"
@@ -38,6 +45,13 @@
     InputGroupInput,
   } from "$lib/components/ui/input-group"
   import Info from "@lucide/svelte/icons/info"
+  import ShieldBan from "@lucide/svelte/icons/shield-ban"
+  import { Separator } from "$lib/components/ui/separator"
+  import { Spinner } from "$lib/components/ui/spinner"
+  import { Empty, EmptyDescription } from "$lib/components/ui/empty"
+  import EmptyTitle from "$lib/components/ui/empty/empty-title.svelte"
+  import ShieldOff from "@lucide/svelte/icons/shield-off"
+  import { Textarea } from "$lib/components/ui/textarea"
 
   let { data } = $props()
   const start = $derived(data.stream.start)
@@ -46,8 +60,16 @@
   let title = $state(data.stream.title)
   // svelte-ignore state_referenced_locally
   let game = $state(data.stream.game)
+  let modOpen = $state(false)
   let pollOpen = $state(false)
   let infoOpen = $state(false)
+  let moderationWords = $state("")
+  let moderationPromise = $state(
+    server.self.getModeration().then(({ words, moderation }) => {
+      moderationWords = words
+      return moderation
+    }),
+  )
 
   let question = $state("")
   let options = $state(["Yes", "No"])
@@ -64,7 +86,9 @@
 
 <div class="flex flex-col p-2 gap-2 grow min-h-0">
   <div class="text-2xl font-bold">Dashboard</div>
-  <div class="border rounded-md grow min-h-0 flex flex-col">
+  <div
+    class="border rounded-md grow min-h-0 flex flex-col overflow-y-auto **:data-pane-group:min-h-96"
+  >
     <Watch
       bind:this={watch}
       data={{
@@ -83,154 +107,249 @@
       }}
     />
   </div>
-  <div class="flex justify-between">
+  <div class="flex justify-between flex-wrap gap-2 *:grow">
     <ButtonGroup>
-      <ButtonGroup>
-        {#each [[elapsed() ?? "-", "Session"], [data.stream.viewers ?? "-", "Viewers"], [data.followers, "Followers"]] as [value, name] (name)}
-          <Button variant="outline" class="flex flex-col gap-0 items-start py-2 px-4 h-auto w-28">
-            <div class="text-base">{value}</div>
-            <div class="text-muted-foreground text-xs">{name}</div>
-          </Button>
-        {/each}
-      </ButtonGroup>
-      <ButtonGroup>
-        <Dialog bind:open={pollOpen}>
-          <DialogTrigger class={cn(buttonVariants(), "h-auto")}>
-            <NotepadText />
-            Start a Poll
-          </DialogTrigger>
-          <DialogContent>
+      {#each [[elapsed() ?? "-", "Session"], [data.stream.viewers ?? "-", "Viewers"], [data.followers, "Followers"]] as [value, name] (name)}
+        <Button variant="outline" class="flex flex-col gap-0 items-start py-2 px-4 h-auto grow">
+          <div class="text-base">{value}</div>
+          <div class="text-muted-foreground text-xs">{name}</div>
+        </Button>
+      {/each}
+    </ButtonGroup>
+    <div class="flex gap-2 *:grow flex-wrap min-h-12">
+      <Dialog bind:open={modOpen}>
+        <DialogTrigger class={cn(buttonVariants(), "h-auto")}>
+          <ShieldBan />
+          Moderation
+        </DialogTrigger>
+        <DialogContent class="overflow-y-auto max-h-2/3">
+          {#await moderationPromise}
+            <Empty>
+              <EmptyTitle>
+                <Spinner class="inline" />
+                Loading moderation data...
+              </EmptyTitle>
+            </Empty>
+          {:then moderation}
+            <DialogHeader>
+              <DialogTitle>Moderation</DialogTitle>
+            </DialogHeader>
+            <DialogDescription>
+              Manage timeouts and bans in your chat. Access moderation tools from 'See chat logs' by
+              pressing the 'more' button on a chat message.
+            </DialogDescription>
+            <Field>
+              <ScrollArea>
+                <div class="flex flex-col gap-2 max-h-64 *:shrink-0 p-1">
+                  {#each moderation as { duration, start, target }, index (index)}
+                    <div class="flex gap-2">
+                      <div class="flex flex-col grow">
+                        <span class="text-xs text-muted-foreground">
+                          {new Date(start * 1000).toLocaleString(undefined, {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                        <div class="flex flex-wrap text-muted-foreground">
+                          {#if duration !== null}
+                            <p>User <span class="text-foreground">{target}</span> &nbsp;</p>
+                            <p>
+                              was timed out for
+                              <span class="text-foreground">{duration} sec</span>
+                            </p>
+                          {:else}
+                            <p>User <span class="text-foreground">{target}</span></p>
+                            <p>was banned</p>
+                          {/if}
+                        </div>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger
+                          class={buttonVariants({ variant: "outline" })}
+                          onclick={async () => {
+                            await server.user.moderate(target, data.user.username, undefined)
+                            moderationPromise = server.self
+                              .getModeration()
+                              .then(({ words, moderation }) => {
+                                moderationWords = words
+                                return moderation
+                              })
+                          }}
+                        >
+                          <ShieldOff class="text-destructive" />
+                        </TooltipTrigger>
+                        <TooltipContent>Pardon {target}</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  {:else}
+                    <Empty class="border">
+                      <EmptyTitle>No bans or timeouts</EmptyTitle>
+                      <EmptyDescription>
+                        Use moderation tools in chat logs to manage your stream's community.
+                      </EmptyDescription>
+                    </Empty>
+                  {/each}
+                </div>
+              </ScrollArea>
+            </Field>
+            <Separator />
+            <DialogHeader>
+              <DialogTitle>Content filtering</DialogTitle>
+            </DialogHeader>
+            <DialogDescription>
+              Automatically filter out unwanted messages in your chat by blocking specific words or
+              phrases.
+            </DialogDescription>
             <form
               onsubmit={async (event) => {
                 event.preventDefault()
-                watch
-                  .poll()
-                  ?.send(
-                    JSON.stringify({
-                      type: "start",
-                      question: question,
-                      options: options,
-                      duration: duration,
-                    }),
-                  )
-                toast.success("Poll started")
-                pollOpen = false
+                await server.self.updateModerationWords(moderationWords)
               }}
               class="contents"
             >
-              <DialogHeader>
-                <DialogTitle>Start a Poll</DialogTitle>
-              </DialogHeader>
-              <FieldSet>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>Question</FieldLabel>
-                    <InputGroup>
-                      <InputGroupInput bind:value={question} />
-                      <InputGroupAddon align="inline-end">
-                        <Tooltip>
-                          <TooltipTrigger>
-                            {#snippet child({ props })}
-                              <InputGroupButton {...props} class="rounded-full" size="icon-xs">
-                                <Info />
-                              </InputGroupButton>
-                            {/snippet}
-                          </TooltipTrigger>
-                          <TooltipContent>Poll questions can include emotes.</TooltipContent>
-                        </Tooltip>
-                      </InputGroupAddon>
-                    </InputGroup>
-                  </Field>
-                  <Field>
-                    <div class="flex justify-between items-center">
-                      <FieldLabel>
-                        Options ({options.length}) <Tooltip>
-                          <TooltipTrigger>
-                            {#snippet child({ props })}
-                              <Button
-                                {...props}
-                                class="rounded-full size-6 p-0 has-[>svg]:p-0"
-                                variant="ghost"
-                              >
-                                <Info />
-                              </Button>
-                            {/snippet}
-                          </TooltipTrigger>
-                          <TooltipContent>Poll options can include emotes.</TooltipContent>
-                        </Tooltip>
-                      </FieldLabel>
-                      <ButtonGroup>
-                        <Button
-                          size="sm"
-                          onclick={() => options.push(`Option ${options.length + 1}`)}
-                        >
-                          <Plus />
-                          Add
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onclick={() => (options = ["Yes", "No"])}
-                        >
-                          <ListRestart />
-                          Reset
-                        </Button>
-                      </ButtonGroup>
-                    </div>
-                    <ScrollArea>
-                      <div class="flex flex-col gap-2 max-h-48 *:shrink-0 p-1">
-                        {#each options as _, index (index)}
-                          <ButtonGroup>
-                            <Input bind:value={options[index]} />
-                            <Tooltip>
-                              <TooltipTrigger
-                                class={buttonVariants({ variant: "outline" })}
-                                onclick={() => options.splice(index, 1)}
-                                disabled={options.length <= 2}
-                              >
-                                <X class="text-destructive" />
-                              </TooltipTrigger>
-                              <TooltipContent>Remove this option</TooltipContent>
-                            </Tooltip>
-                          </ButtonGroup>
-                        {/each}
-                      </div>
-                    </ScrollArea>
-                  </Field>
-                  <Field>
-                    <FieldLabel>Duration</FieldLabel>
-                    <Select
-                      type="single"
-                      bind:value={
-                        () => duration.toString(), (value) => (duration = parseInt(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        {durations.find(([, value]) => value == duration)?.[0]}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {#each durations as [label, value] (value)}
-                            <SelectItem value={value.toString()}>{label}</SelectItem>
-                          {/each}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </FieldGroup>
-              </FieldSet>
-              <DialogFooter>
-                <DialogClose class={buttonVariants({ variant: "outline" })} type="button">
-                  Cancel
-                </DialogClose>
-                <Button type="submit" disabled={!question}>Start</Button>
-              </DialogFooter>
+              <Field>
+                <Textarea bind:value={moderationWords} />
+                <FieldDescription>
+                  Specify words to filter case-insensitively, separated by commas or new lines.
+                </FieldDescription>
+              </Field>
+              <Button type="submit">Save content filtering changes</Button>
             </form>
-          </DialogContent>
-        </Dialog>
-      </ButtonGroup>
-    </ButtonGroup>
-    <ButtonGroup>
+          {/await}
+        </DialogContent>
+      </Dialog>
+      <Dialog bind:open={pollOpen}>
+        <DialogTrigger class={cn(buttonVariants(), "h-auto")}>
+          <NotepadText />
+          Start a Poll
+        </DialogTrigger>
+        <DialogContent>
+          <form
+            onsubmit={async (event) => {
+              event.preventDefault()
+              watch
+                .poll()
+                ?.send(
+                  JSON.stringify({
+                    type: "start",
+                    question: question,
+                    options: options,
+                    duration: duration,
+                  }),
+                )
+              toast.success("Poll started")
+              pollOpen = false
+            }}
+            class="contents"
+          >
+            <DialogHeader>
+              <DialogTitle>Start a Poll</DialogTitle>
+            </DialogHeader>
+            <FieldSet>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel>Question</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput bind:value={question} />
+                    <InputGroupAddon align="inline-end">
+                      <Tooltip>
+                        <TooltipTrigger>
+                          {#snippet child({ props })}
+                            <InputGroupButton {...props} class="rounded-full" size="icon-xs">
+                              <Info />
+                            </InputGroupButton>
+                          {/snippet}
+                        </TooltipTrigger>
+                        <TooltipContent>Poll questions can include emotes.</TooltipContent>
+                      </Tooltip>
+                    </InputGroupAddon>
+                  </InputGroup>
+                </Field>
+                <Field>
+                  <div class="flex justify-between items-center">
+                    <FieldLabel>
+                      Options ({options.length}) <Tooltip>
+                        <TooltipTrigger>
+                          {#snippet child({ props })}
+                            <Button
+                              {...props}
+                              class="rounded-full size-6 p-0 has-[>svg]:p-0"
+                              variant="ghost"
+                            >
+                              <Info />
+                            </Button>
+                          {/snippet}
+                        </TooltipTrigger>
+                        <TooltipContent>Poll options can include emotes.</TooltipContent>
+                      </Tooltip>
+                    </FieldLabel>
+                    <ButtonGroup>
+                      <Button
+                        size="sm"
+                        onclick={() => options.push(`Option ${options.length + 1}`)}
+                      >
+                        <Plus />
+                        Add
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onclick={() => (options = ["Yes", "No"])}
+                      >
+                        <ListRestart />
+                        Reset
+                      </Button>
+                    </ButtonGroup>
+                  </div>
+                  <ScrollArea>
+                    <div class="flex flex-col gap-2 max-h-48 *:shrink-0 p-1">
+                      {#each options as _, index (index)}
+                        <ButtonGroup>
+                          <Input bind:value={options[index]} />
+                          <Tooltip>
+                            <TooltipTrigger
+                              class={buttonVariants({ variant: "outline" })}
+                              onclick={() => options.splice(index, 1)}
+                              disabled={options.length <= 2}
+                            >
+                              <X class="text-destructive" />
+                            </TooltipTrigger>
+                            <TooltipContent>Remove this option</TooltipContent>
+                          </Tooltip>
+                        </ButtonGroup>
+                      {/each}
+                    </div>
+                  </ScrollArea>
+                </Field>
+                <Field>
+                  <FieldLabel>Duration</FieldLabel>
+                  <Select
+                    type="single"
+                    bind:value={() => duration.toString(), (value) => (duration = parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      {durations.find(([, value]) => value == duration)?.[0]}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {#each durations as [label, value] (value)}
+                          <SelectItem value={value.toString()}>{label}</SelectItem>
+                        {/each}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+            <DialogFooter>
+              <DialogClose class={buttonVariants({ variant: "outline" })} type="button">
+                Cancel
+              </DialogClose>
+              <Button type="submit" disabled={!question}>Start</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog bind:open={infoOpen}>
         <DialogTrigger class={cn(buttonVariants(), "h-auto")}>
           <PencilLine />
@@ -271,6 +390,6 @@
           </form>
         </DialogContent>
       </Dialog>
-    </ButtonGroup>
+    </div>
   </div>
 </div>

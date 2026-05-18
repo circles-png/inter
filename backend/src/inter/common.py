@@ -1,8 +1,10 @@
+from datetime import timedelta
 from os import environ
 import re
 from typing import Any, Callable
 import quart
 from quart_cors import cors  # type: ignore
+from quart_rate_limiter import RateLimit, RateLimiter
 from quart_sqlalchemy.framework import QuartSQLAlchemy
 from quart_sqlalchemy import (
     AsyncBindConfig,
@@ -31,6 +33,22 @@ db = QuartSQLAlchemy(
     app=app,
 )
 get_session: Callable[[], AsyncSession[Any]] = lambda: db.bind.Session()  # type: ignore
+
+
+async def _skip_static() -> bool:
+    return (
+        quart.request.endpoint is not None
+        and app.view_functions[quart.request.endpoint].__name__ == "static_files"
+    )
+
+
+rate_limiter = RateLimiter(
+    app,
+    default_limits=[
+        RateLimit(5, timedelta(seconds=1)),
+    ],
+    skip_function=_skip_static,
+)
 
 
 MODERATOR_ROLE_ID = 0
@@ -71,8 +89,10 @@ async def create_initial_streams() -> None:
         for id in (await session.scalars(select(User.id))).all():
             streams[id] = Stream()
 
+
 @app.before_serving
 async def before_serving() -> None:
     await create_initial_streams()
+
 
 COLOUR_COUNT = 17

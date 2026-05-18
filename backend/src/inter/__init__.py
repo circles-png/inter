@@ -1,13 +1,14 @@
 from asyncio import set_event_loop_policy
-from http.client import NOT_FOUND, UNAUTHORIZED
+from http.client import INTERNAL_SERVER_ERROR, NOT_FOUND, OK, UNAUTHORIZED
 from logging import getLogger
 import logging
 from pathlib import Path
 import httpx
-
+from quart import abort, redirect
 
 def create_app():
     from dotenv import load_dotenv
+
     load_dotenv()
     from os import environ
     from os.path import exists, join
@@ -39,7 +40,7 @@ def create_app():
     async def static_files(path: str):
         if environ.get("PROD"):
             if not app.static_folder:
-                return quart.abort(500)
+                return abort(INTERNAL_SERVER_ERROR)
             if (
                 exists(join(app.static_folder, path))
                 and Path(join(app.static_folder, path)).is_file()
@@ -48,10 +49,11 @@ def create_app():
             return await quart.send_file(join(app.static_folder, "index.html"))  # type: ignore
         else:
             response = httpx.get(f"http://localhost:5173/{path}")
+            if response.status_code != OK:
+                return redirect("/")
             return quart.Response(
                 response.content,
-                response.status_code,
-                dict(response.headers.items()),
+                headers=dict(response.headers.items()),
             )
 
     app.register_blueprint(api)

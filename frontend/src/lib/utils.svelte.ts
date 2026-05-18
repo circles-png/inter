@@ -173,6 +173,26 @@ export function serverWithFetch(f: typeof window.fetch) {
       async updateStream({ title, game }: { title?: string; game?: string }) {
         await this.postJSON("/stream/update", { title, game })
       },
+      async getModeration(): Promise<{
+        moderation: { duration: number | null; start: number; target: string }[]
+        words: string
+      }> {
+        const response = await this.get("/stream/moderation")
+        if (!response.ok) {
+          return { moderation: [], words: "" }
+        }
+        return response.json()
+      },
+      async updateModerationWords(words: string): Promise<void> {
+        await this.post("/stream/moderation/words", words).then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text()
+            toast.error("Error while updating content filtering settings", { description: text })
+            return Promise.reject(text)
+          }
+          toast.success("Updated content filtering settings successfully")
+        })
+      },
     },
     auth: {
       ...createBase(f, `${apiBase}/auth`),

@@ -333,6 +333,18 @@ files = [
 ]
 
 [[package]]
+name = "better-profanity"
+version = "0.7.0"
+description = "Blazingly fast cleaning swear words (and their leetspeak) in strings"
+optional = false
+python-versions = "==3.*"
+groups = ["main"]
+files = [
+    {file = "better_profanity-0.7.0-py3-none-any.whl", hash = "sha256:bd4c529ea6aa2db1aaa50524be1ed14d0fe5c664f1fd88c8bc388c7e9f9f00e8"},
+    {file = "better_profanity-0.7.0.tar.gz", hash = "sha256:8a6fdc8606d7471e7b5f6801917eca98ec211098262e82f62da4f5de3a73145b"},
+]
+
+[[package]]
 name = "blinker"
 version = "1.9.0"
 description = "Fast, simple object-to-object and broadcast signaling"
@@ -2060,6 +2072,26 @@ files = [
 quart = ">=0.15"
 
 [[package]]
+name = "quart-rate-limiter"
+version = "0.12.1"
+description = "A Quart extension to provide rate limiting support"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "quart_rate_limiter-0.12.1-py3-none-any.whl", hash = "sha256:c910aa603b1eaaedb02d9475c9df1626e32b2bd936647228609d00269521f656"},
+    {file = "quart_rate_limiter-0.12.1.tar.gz", hash = "sha256:9bd44b35372d0255ae716bff9aedeb041188cc3480a51a37e1f9e00b178941f3"},
+]
+
+[package.dependencies]
+quart = ">=0.19"
+
+[package.extras]
+docs = ["pydata_sphinx_theme"]
+redis = ["redis (>=4.4.0)"]
+valkey = ["valkey"]
+
+[[package]]
 name = "quart-sqlalchemy"
 version = "3.0.5"
 description = "SQLAlchemy for humans, with framework adapter for Quart."
@@ -2562,4 +2594,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "5bea8f5f08b5832f6e042ba86b361a28838b3e7cce688b5e8d3270305e328407"
+content-hash = "81ee62e17288646fbf64846c5bf1656e10a308f63843aecddb214f948246335c"

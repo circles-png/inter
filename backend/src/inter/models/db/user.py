@@ -32,6 +32,7 @@ class User(db.Model):
     display_name: Mapped[str] = mapped_column(nullable=False)
     stream_title: Mapped[str] = mapped_column(nullable=False, default="")
     stream_game: Mapped[str] = mapped_column(nullable=False, default="")
+    stream_moderation_words: Mapped[str] = mapped_column(nullable=False, default="")
 
     @staticmethod
     async def from_session(sql_session: AsyncSession[Any]) -> "User":

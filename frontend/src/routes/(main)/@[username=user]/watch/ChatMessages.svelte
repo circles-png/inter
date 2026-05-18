@@ -193,7 +193,7 @@
             chatInput?.focus()
           }}
           <ButtonGroup
-            class="flex opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
+            class="flex md:opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition has-focus-visible:opacity-100 has-focus-visible:scale-100 has-data-[state=open]:opacity-100 has-data-[state=open]:scale-100"
           >
             <Button
               variant="ghost"
@@ -289,7 +289,7 @@
             {/if}
           {/await}
           <span class="text-sm text-muted-foreground">Moderate user</span>
-          <ButtonGroup>
+          <ButtonGroup class="overflow-x-auto">
             <ButtonGroup>
               <Tooltip>
                 <TooltipTrigger

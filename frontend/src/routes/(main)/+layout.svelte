@@ -173,7 +173,7 @@
     {@render header()}
     {@render children()}
     <div
-      class="md:hidden grid auto-cols-[4em] grid-flow-col p-2 justify-between *:text-[10px] border-t"
+      class="md:hidden grid auto-cols-[4em] grid-flow-col p-2 justify-between *:text-[10px] border-t shrink-0"
     >
       <Button
         variant="ghost"

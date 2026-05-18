@@ -321,9 +321,9 @@
           class="flex md:flex-col wrap-anywhere gap-x-1 items-center md:items-stretch self-start flex-wrap"
         >
           <div class="font-bold text-base">{displayName || `@${username}`}</div>
-          <div class="md:hidden">&middot;</div>
+          {#if title}<div class="md:hidden">&middot;</div>{/if}
           <div>{title}</div>
-          <div class="md:hidden">&middot;</div>
+          {#if game}<div class="md:hidden">&middot;</div>{/if}
           <div class="text-muted-foreground">{game}</div>
         </div>
         {#if elapsed()}
