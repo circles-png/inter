@@ -614,6 +614,16 @@ async def ws(username: str):
 
                     for transceiver in connection.getTransceivers():
                         transceiver.sender.transport._role = "server"  # type: ignore
+                        if transceiver.kind == "video":
+                            capabilities = transceiver.receiver.getCapabilities("video")
+                            if capabilities is not None:
+                                transceiver.setCodecPreferences(
+                                    [
+                                        codec
+                                        for codec in capabilities.codecs
+                                        if codec.name in ("H264", "rtx")
+                                    ]
+                                )
 
                     await connection.setLocalDescription(
                         await connection.createAnswer()

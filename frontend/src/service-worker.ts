@@ -71,12 +71,11 @@ self.addEventListener("fetch", (event) => {
           throw new Error("offline")
         }
         if (response.status === 200) {
-          cache.put(event.request, response.clone())
+          await cache.put(event.request, response.clone())
         }
         return response
       } catch {
-        const response = await cache.match(event.request)
-        if (response) return response
+        return await cache.match(event.request)
       }
     })(),
   )
