@@ -25,9 +25,18 @@ jobs:
           node-version: 25
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
       - run: |
           corepack enable
           corepack prepare pnpm@10 --activate
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: |
           cd frontend
           pnpm i --frozen-lockfile
           pnpm run build
