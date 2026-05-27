@@ -629,8 +629,14 @@ async def ws(username: str):
                         await connection.createAnswer()
                     )
 
-                    for candidate in candidates:
-                        await connection.addIceCandidate(candidate)
+                    iterator = iter(candidates[:])
+                    candidate = next(iterator, None)
+                    if candidate is not None:
+                        while True:
+                            await connection.addIceCandidate(candidate)
+                            candidate = next(iterator, None)
+                            if candidate is None:
+                                break
 
                     await new_client.tx_queue.put(
                         {
